@@ -21,6 +21,9 @@
     - install with the `omnivoice` optional dependencies
 - Add `--local-files-only` to run the HuggingFace loader in offline mode
 - Add `--web-server` for a web UI (runs alongside the Wyoming server) to manage custom and cloned voices
+- Fix custom voices being advertised under their `dataset` name instead of their
+  file name, which made them impossible to synthesize when the two disagreed.
+  The `dataset` name is still accepted as an alias.
 
 ## 2.3.1
 
