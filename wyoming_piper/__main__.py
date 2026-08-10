@@ -285,28 +285,38 @@ def _setup_piper(args: argparse.Namespace) -> "tuple[Info, Dict[str, Any]]":
         )
         with open(custom_config_path, "r", encoding="utf-8") as custom_config_file:
             custom_config = json.load(custom_config_file)
-            custom_name = custom_config.get("dataset", custom_voice_path.stem)
-            custom_quality = custom_config.get("audio", {}).get("quality")
-            if custom_quality:
-                description = f"{custom_name} ({custom_quality})"
-            else:
-                description = custom_name
 
-            lang_code = custom_config.get("language", {}).get("code")
+        dataset_name = custom_config.get("dataset", custom_voice_path.stem)
+        custom_quality = custom_config.get("audio", {}).get("quality")
+        if custom_quality:
+            description = f"{dataset_name} ({custom_quality})"
+        else:
+            description = dataset_name
+
+        lang_code = custom_config.get("language", {}).get("code")
+        if not lang_code:
+            lang_code = custom_config.get("espeak", {}).get("voice")
             if not lang_code:
-                lang_code = custom_config.get("espeak", {}).get("voice")
-                if not lang_code:
-                    lang_code = custom_voice_path.stem.split("_")[0]
+                lang_code = custom_voice_path.stem.split("_")[0]
 
-            voices.append(
-                TtsVoice(
-                    name=custom_name,
-                    description=description,
-                    version=None,
-                    attribution=Attribution(name="", url=""),
-                    installed=True,
-                    languages=[lang_code],
-                )
+        # Advertise the name that find_voice() can resolve, not the "dataset"
+        # field, which often disagrees with the file name.
+        voices.append(
+            TtsVoice(
+                name=custom_voice_name,
+                description=description,
+                version=None,
+                attribution=Attribution(name="", url=""),
+                installed=True,
+                languages=[lang_code],
+            )
+        )
+
+        if dataset_name != custom_voice_name:
+            # Older versions advertised "dataset" as the voice name, so keep
+            # accepting it from clients that stored it.
+            voices_info.setdefault(
+                dataset_name, {"_is_alias": True, "key": custom_voice_name}
             )
 
     wyoming_info = Info(
