@@ -6,14 +6,14 @@ import logging
 import signal
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any, Callable, Dict, List, Set
 
 from wyoming.info import Attribution, Info, TtsProgram, TtsVoice, TtsVoiceSpeaker
 from wyoming.server import AsyncServer, AsyncTcpServer
 
 from . import __version__
 from .download import VoiceNotFoundError, ensure_voice_exists, find_voice, get_voices
-from .handler import PiperEventHandler, get_omnivoice_voices, load_omnivoice
+from .handler import PiperEventHandler, load_omnivoice, reload_omnivoice_voices
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -187,12 +187,12 @@ async def main() -> None:
             )
 
     if args.backend == "omnivoice":
-        wyoming_info, voices_info = _setup_omnivoice(args)
+        info_factory, voices_info = _setup_omnivoice(args)
     else:
         if not args.voice:
             parser.error("--voice is required for the piper backend")
 
-        wyoming_info, voices_info = _setup_piper(args)
+        info_factory, voices_info = _setup_piper(args)
 
     # Start server
     server = AsyncServer.from_uri(args.uri)
@@ -215,7 +215,7 @@ async def main() -> None:
         server.run(
             partial(
                 PiperEventHandler,
-                wyoming_info,
+                info_factory,
                 args,
                 voices_info,
             )
@@ -234,8 +234,15 @@ async def main() -> None:
 # -----------------------------------------------------------------------------
 
 
-def _setup_piper(args: argparse.Namespace) -> "tuple[Info, Dict[str, Any]]":
-    """Build Wyoming info and voice table for the piper backend."""
+def _setup_piper(
+    args: argparse.Namespace,
+) -> "tuple[Callable[[], Info], Dict[str, Any]]":
+    """Load the voice table for the piper backend and ensure the default voice.
+
+    Returns a factory that rebuilds the Wyoming info, so custom voices added
+    while the server runs are advertised on the next Describe. Downloading (the
+    catalog, and the default voice) happens once, here.
+    """
     # Load voice info
     voices_info = get_voices(args.download_dir, update_voices=args.update_voices)
 
@@ -246,6 +253,23 @@ def _setup_piper(args: argparse.Namespace) -> "tuple[Info, Dict[str, Any]]":
             aliases_info[voice_alias] = {"_is_alias": True, **voice_info}
 
     voices_info.update(aliases_info)
+
+    # Build once now so a broken --voice is reported at startup, and so any
+    # "dataset" alias the default voice needs is registered before it resolves.
+    _piper_info(args, voices_info)
+
+    # Ensure default voice is downloaded
+    voice_info = voices_info.get(args.voice, {})
+    voice_name = voice_info.get("key", args.voice)
+    assert voice_name is not None
+
+    ensure_voice_exists(voice_name, args.data_dir, args.download_dir, voices_info)
+
+    return partial(_piper_info, args, voices_info), voices_info
+
+
+def _piper_info(args: argparse.Namespace, voices_info: Dict[str, Any]) -> Info:
+    """Build Wyoming info from the catalog plus the custom voices on disk."""
     voices = [
         TtsVoice(
             name=voice_name,
@@ -296,7 +320,7 @@ def _setup_piper(args: argparse.Namespace) -> "tuple[Info, Dict[str, Any]]":
         # above so that a "dataset" alias registered there can resolve it.
         _add_custom_voice(args.voice, args, voices_info, voices)
 
-    wyoming_info = Info(
+    return Info(
         tts=[
             TtsProgram(
                 name="piper",
@@ -311,15 +335,6 @@ def _setup_piper(args: argparse.Namespace) -> "tuple[Info, Dict[str, Any]]":
             )
         ],
     )
-
-    # Ensure default voice is downloaded
-    voice_info = voices_info.get(args.voice, {})
-    voice_name = voice_info.get("key", args.voice)
-    assert voice_name is not None
-
-    ensure_voice_exists(voice_name, args.data_dir, args.download_dir, voices_info)
-
-    return wyoming_info, voices_info
 
 
 def _add_custom_voice(
@@ -393,11 +408,15 @@ def _add_custom_voice(
 # -----------------------------------------------------------------------------
 
 
-def _setup_omnivoice(args: argparse.Namespace) -> "tuple[Info, Dict[str, Any]]":
-    """Build Wyoming info and ensure models for the omnivoice backend.
+def _setup_omnivoice(
+    args: argparse.Namespace,
+) -> "tuple[Callable[[], Info], Dict[str, Any]]":
+    """Ensure models for the omnivoice backend and return an info factory.
 
     The HuggingFace cache is pointed at ``--download-dir`` and the model is
-    downloaded there (unless ``--local-files-only`` is set).
+    downloaded there (unless ``--local-files-only`` is set). The returned factory
+    rescans ``--omnivoice-ref-dir`` on each call, so voices added while the
+    server runs are advertised on the next Describe.
     """
     import os
 
@@ -410,6 +429,12 @@ def _setup_omnivoice(args: argparse.Namespace) -> "tuple[Info, Dict[str, Any]]":
     # before serving.
     load_omnivoice(args)
 
+    # voices_info is unused by the omnivoice backend.
+    return partial(_omnivoice_info, args), {}
+
+
+def _omnivoice_info(args: argparse.Namespace) -> Info:
+    """Build Wyoming info from the reference voices currently on disk."""
     from .omnivoice import (
         DEFAULT_VOICE_NAME,
         advertise_language,
@@ -430,8 +455,10 @@ def _setup_omnivoice(args: argparse.Namespace) -> "tuple[Info, Dict[str, Any]]":
             languages=get_supported_languages(),
         )
     ]
-    # Cloning and voice-design (instruct) voices discovered under --omnivoice-ref-dir.
-    for ref in get_omnivoice_voices().values():
+    # Cloning and voice-design (instruct) voices under --omnivoice-ref-dir.
+    # Rescanned rather than reused from startup so a voice added since then --
+    # by the web UI, say -- is advertised without restarting the process.
+    for ref in reload_omnivoice_voices(args).values():
         lang = advertise_language(ref.language)
         voices.append(
             TtsVoice(
@@ -444,7 +471,7 @@ def _setup_omnivoice(args: argparse.Namespace) -> "tuple[Info, Dict[str, Any]]":
             )
         )
 
-    wyoming_info = Info(
+    return Info(
         tts=[
             TtsProgram(
                 name="omnivoice",
@@ -457,9 +484,6 @@ def _setup_omnivoice(args: argparse.Namespace) -> "tuple[Info, Dict[str, Any]]":
             )
         ],
     )
-
-    # voices_info is unused by the omnivoice backend.
-    return wyoming_info, {}
 
 
 # -----------------------------------------------------------------------------

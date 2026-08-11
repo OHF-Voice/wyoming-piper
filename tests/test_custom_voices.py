@@ -45,7 +45,8 @@ def setup_result_fixture(data_dir: Path) -> "tuple[Any, Dict[str, Any]]":
         update_voices=False,
         no_streaming=False,
     )
-    return _setup_piper(args)
+    info_factory, voices_info = _setup_piper(args)
+    return info_factory(), voices_info
 
 
 def _resolve(voices_info: Dict[str, Any], name: str) -> str:
@@ -103,7 +104,7 @@ def test_dataset_name_accepted_as_default_voice(data_dir: Path) -> None:
         update_voices=False,
         no_streaming=False,
     )
-    _wyoming_info, voices_info = _setup_piper(args)
+    _info_factory, voices_info = _setup_piper(args)
 
     assert _resolve(voices_info, "jarvis-medium") == _MISMATCHED
 
@@ -122,7 +123,8 @@ def test_unusable_custom_voice_does_not_prevent_startup(data_dir: Path) -> None:
         update_voices=False,
         no_streaming=False,
     )
-    wyoming_info, _voices_info = _setup_piper(args)
+    info_factory, _voices_info = _setup_piper(args)
+    wyoming_info = info_factory()
 
     names = {v.name for v in wyoming_info.tts[0].voices}
     assert "orphan" not in names
@@ -145,6 +147,24 @@ def test_missing_default_voice_still_raises(data_dir: Path) -> None:
         _setup_piper(args)
 
 
+def test_voice_added_while_running_is_advertised(data_dir: Path) -> None:
+    """Describe reflects voices added after startup, without a restart."""
+    args = argparse.Namespace(
+        backend="piper",
+        voice=_MATCHED,
+        data_dir=[str(data_dir)],
+        download_dir=str(data_dir),
+        update_voices=False,
+        no_streaming=False,
+    )
+    info_factory, _voices_info = _setup_piper(args)
+    assert "added-later" not in {v.name for v in info_factory().tts[0].voices}
+
+    _write_voice(data_dir, "added-later", dataset="added-later")
+
+    assert "added-later" in {v.name for v in info_factory().tts[0].voices}
+
+
 def test_catalog_voice_not_shadowed_by_dataset_alias(data_dir: Path) -> None:
     """A "dataset" alias never overrides a real catalog voice."""
     _write_voice(data_dir, "my-copy-of-lessac", dataset="en_US-lessac-medium")
@@ -156,6 +176,6 @@ def test_catalog_voice_not_shadowed_by_dataset_alias(data_dir: Path) -> None:
         update_voices=False,
         no_streaming=False,
     )
-    _wyoming_info, voices_info = _setup_piper(args)
+    _info_factory, voices_info = _setup_piper(args)
 
     assert _resolve(voices_info, "en_US-lessac-medium") == "en_US-lessac-medium"

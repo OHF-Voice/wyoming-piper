@@ -35,10 +35,11 @@ from werkzeug.serving import make_server
 
 _LOGGER = logging.getLogger(__name__)
 
-# Reminder shown after any change so the user knows it is not live yet.
+# Shown after any change. The Wyoming server picks voices up on its own, but a
+# client caches the voice list from the last Describe, so it needs a nudge.
 RELOAD_MESSAGE = (
-    "Changes saved. Reload the Piper integration or restart Home Assistant "
-    "for them to take effect."
+    "Changes saved. Reload the Piper integration in Home Assistant to refresh "
+    "its voice list."
 )
 
 # Safe voice / language / directory names: no path separators, no surprises.

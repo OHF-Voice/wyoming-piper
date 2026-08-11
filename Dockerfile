@@ -11,6 +11,11 @@ ARG EXTRAS="zeroconf,zh,web"
 WORKDIR /usr/src
 
 COPY ./pyproject.toml ./
+# The package has to exist for setuptools' packages.find to see it, or the
+# editable install maps nothing and importing wyoming_piper only works from
+# /usr/src. Just the __init__.py, so the install layer stays cached until the
+# version changes -- which changes pyproject.toml above anyway.
+COPY ./wyoming_piper/__init__.py ./wyoming_piper/
 RUN \
     apt-get update \
     && apt-get install -y --no-install-recommends \
