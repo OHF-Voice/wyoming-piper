@@ -22,14 +22,16 @@ import json
 import logging
 import re
 import shutil
+import socket
 import threading
 import wave
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from flask import Flask, jsonify, render_template_string, request
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.serving import make_server
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -82,28 +84,39 @@ def _piper_voice_metadata(config_path: Path) -> Dict[str, Any]:
     return meta
 
 
-def _list_piper_voices(download_dir: Path, builtin: set) -> List[Dict[str, Any]]:
-    """List custom Piper voices (``*.onnx`` + ``*.onnx.json``) in download-dir."""
-    voices: List[Dict[str, Any]] = []
-    if not download_dir.is_dir():
-        return voices
+def _list_piper_voices(voice_dirs: List[Path], builtin: set) -> List[Dict[str, Any]]:
+    """List custom Piper voices (``*.onnx`` + ``*.onnx.json``) in the voice dirs.
 
-    for onnx_path in sorted(download_dir.glob("*.onnx")):
-        name = onnx_path.stem  # e.g. "en_US-lessac-medium"
-        config_path = onnx_path.with_name(onnx_path.name + ".json")
-        if not config_path.is_file():
-            # A model with no config isn't usable; skip it.
+    Dirs are searched in the order the Wyoming server resolves them, so the first
+    copy of a name wins and a shadowed duplicate is not listed twice.
+    """
+    voices: List[Dict[str, Any]] = []
+    seen: Set[str] = set()
+    for voice_dir in voice_dirs:
+        if not voice_dir.is_dir():
             continue
 
-        voice: Dict[str, Any] = {
-            "name": name,
-            "builtin": name in builtin,
-            "size_bytes": onnx_path.stat().st_size,
-        }
-        voice.update(_piper_voice_metadata(config_path))
-        voices.append(voice)
+        for onnx_path in sorted(voice_dir.glob("*.onnx")):
+            name = onnx_path.stem  # e.g. "en_US-lessac-medium"
+            if name in seen:
+                continue
 
-    return voices
+            config_path = onnx_path.with_name(onnx_path.name + ".json")
+            if not config_path.is_file():
+                # A model with no config isn't usable; skip it.
+                continue
+
+            seen.add(name)
+            voice: Dict[str, Any] = {
+                "name": name,
+                "dir": str(voice_dir),
+                "builtin": name in builtin,
+                "size_bytes": onnx_path.stat().st_size,
+            }
+            voice.update(_piper_voice_metadata(config_path))
+            voices.append(voice)
+
+    return sorted(voices, key=lambda v: v["name"])
 
 
 # -----------------------------------------------------------------------------
@@ -191,6 +204,15 @@ def make_web_server(cli_args: argparse.Namespace) -> Flask:
     ref_dir = Path(cli_args.omnivoice_ref_dir) if cli_args.omnivoice_ref_dir else None
     backend = cli_args.backend
 
+    # The Wyoming server advertises custom voices from every --data-dir, so all
+    # of them are managed here. Uploads still go to --download-dir, which is not
+    # necessarily one of them. Data dirs come first, matching find_voice() order.
+    voice_dirs: List[Path] = []
+    for dir_str in list(cli_args.data_dir) + [cli_args.download_dir]:
+        voice_dir = Path(dir_str)
+        if voice_dir not in voice_dirs:
+            voice_dirs.append(voice_dir)
+
     def _builtin_voice_names() -> set:
         """Names of known built-in Piper voices (for labeling only)."""
         try:
@@ -217,6 +239,7 @@ def make_web_server(cli_args: argparse.Namespace) -> Flask:
                 "omnivoice_enabled": backend == "omnivoice",
                 "omnivoice_ref_dir": str(ref_dir) if ref_dir else None,
                 "download_dir": str(download_dir),
+                "voice_dirs": [str(d) for d in voice_dirs],
                 "omnivoice_languages": _omnivoice_languages(
                     cli_args.omnivoice_language
                 ),
@@ -228,7 +251,7 @@ def make_web_server(cli_args: argparse.Namespace) -> Flask:
     @flask_app.route("/api/piper/voices", methods=["GET"])
     def piper_voices():  # type: ignore[no-untyped-def]
         return jsonify(
-            {"voices": _list_piper_voices(download_dir, _builtin_voice_names())}
+            {"voices": _list_piper_voices(voice_dirs, _builtin_voice_names())}
         )
 
     @flask_app.route("/api/piper/upload", methods=["POST"])
@@ -279,8 +302,10 @@ def make_web_server(cli_args: argparse.Namespace) -> Flask:
         onnx_path = download_dir / f"{base}.onnx"
         config_path = download_dir / f"{base}.onnx.json"
 
-        onnx_file.save(onnx_path)
+        # Config first: voices are discovered by globbing *.onnx, so if this is
+        # interrupted a stray config is ignored, while a stray model is not.
         config_path.write_bytes(config_bytes)
+        onnx_file.save(onnx_path)
         _LOGGER.info("Uploaded custom Piper voice: %s", base)
 
         return jsonify({"ok": True, "name": base, "message": RELOAD_MESSAGE})
@@ -291,17 +316,25 @@ def make_web_server(cli_args: argparse.Namespace) -> Flask:
         if not _valid_name(name):
             return jsonify({"ok": False, "error": "Invalid voice name"}), 400
 
-        onnx_path = download_dir / f"{name}.onnx"
-        config_path = download_dir / f"{name}.onnx.json"
-        if not onnx_path.is_file() and not config_path.is_file():
+        # Remove every copy: the list above shows one row per name, and leaving a
+        # shadowed copy in another data dir would keep the voice advertised.
+        targets = [
+            path
+            for voice_dir in voice_dirs
+            for path in (
+                voice_dir / f"{name}.onnx",
+                voice_dir / f"{name}.onnx.json",
+            )
+            if path.is_file()
+        ]
+        if not targets:
             return jsonify({"ok": False, "error": f"Voice not found: {name}"}), 404
 
         removed = []
-        for path in (onnx_path, config_path):
+        for path in targets:
             try:
-                if path.is_file():
-                    path.unlink()
-                    removed.append(path.name)
+                path.unlink()
+                removed.append(str(path))
             except OSError as err:
                 return (
                     jsonify({"ok": False, "error": f"Could not delete {path}: {err}"}),
@@ -419,13 +452,30 @@ def make_web_server(cli_args: argparse.Namespace) -> Flask:
 
 
 def run_web_server(flask_app: Flask, host: str, port: int) -> threading.Thread:
-    """Run the Flask app in a daemon thread."""
+    """Run the Flask app in a daemon thread.
 
-    def _run() -> None:
-        logging.getLogger("werkzeug").setLevel(logging.ERROR)
-        flask_app.run(host=host, port=port, use_reloader=False, threaded=True)
+    The listening socket is bound here, in the caller's thread, so a failure
+    (port already in use, for one) raises ``OSError`` to the caller instead of
+    killing the background thread just after we logged that the UI is available.
+    We bind it rather than letting werkzeug do it because werkzeug's bind path
+    prints to stderr and calls ``sys.exit(1)`` instead of raising. Handing it an
+    already-bound ``fd`` skips that path entirely.
+    """
+    logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
-    thread = threading.Thread(target=_run, name="web-server", daemon=True)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((host, port))
+        sock.listen()
+        server = make_server(host, port, flask_app, threaded=True, fd=sock.fileno())
+    except BaseException:
+        sock.close()
+        raise
+
+    thread = threading.Thread(
+        target=server.serve_forever, name="web-server", daemon=True
+    )
     thread.start()
     _LOGGER.info("Web UI available on http://%s:%s", host, port)
     return thread
@@ -549,8 +599,9 @@ INDEX_HTML = r"""<!doctype html>
       <span class="badge" id="piper-badge">&nbsp;</span>
     </div>
     <div id="piper-warn"></div>
-    <p class="sub">Custom voices in the download directory. Each voice is a
-      <code>&lt;name&gt;.onnx</code> model and its <code>&lt;name&gt;.onnx.json</code> config.</p>
+    <p class="sub">Custom voices in this server's data directories. Each voice is a
+      <code>&lt;name&gt;.onnx</code> model and its <code>&lt;name&gt;.onnx.json</code> config.
+      Uploads go to <code id="piper-upload-dir">the download directory</code>.</p>
     <div id="piper-list"><p class="empty">Loading…</p></div>
 
     <details>
@@ -603,8 +654,10 @@ const api = (p) => BASE + p;
 const el = (id) => document.getElementById(id);
 
 function esc(s) {
-  return String(s == null ? "" : s).replace(/[&<>"]/g,
-    c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+  // Note: '\'' matters -- attributes below are single-quoted and values like
+  // an OmniVoice transcript routinely contain apostrophes.
+  return String(s == null ? "" : s).replace(/[&<>"']/g,
+    c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 }
 function fmtSize(n) {
   if (n == null) return "";
@@ -653,6 +706,8 @@ async function loadStatus() {
   }
   if (warn) sectionMsg("omni-warn", "warn", warn);
 
+  if (STATE.download_dir) el("piper-upload-dir").textContent = STATE.download_dir;
+
   const dl = el("omni-langs");
   dl.innerHTML = (STATE.omnivoice_languages || [])
     .map(l => '<option value="' + esc(l) + '">').join("");
@@ -666,7 +721,8 @@ async function loadPiper() {
     return;
   }
   let rows = voices.map(v =>
-    "<tr><td><span class='voice-name'>" + esc(v.name) + "</span>" +
+    "<tr><td><span class='voice-name' title='" + esc(v.dir || "") + "'>" +
+      esc(v.name) + "</span>" +
       (v.builtin ? "<span class='tag'>built-in</span>" : "") + "</td>" +
     "<td>" + esc(v.dataset || "") + "</td>" +
     "<td>" + esc(v.language || "") + "</td>" +

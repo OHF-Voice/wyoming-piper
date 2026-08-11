@@ -10,6 +10,8 @@
 
 ## Local Install
 
+Requires Python 3.10 or later.
+
 Clone the repository and set up Python virtual environment:
 
 ``` sh
@@ -73,9 +75,15 @@ Each voice directory is one of two kinds:
   See [voice design](https://github.com/k2-fsa/OmniVoice/blob/master/docs/voice-design.md) for valid attributes.
   Only used when the directory has no `ref.wav`/`ref.txt`.
 
-A `default` voice is also advertised for every language OmniVoice supports;
-requesting `default` (or an empty/unknown voice name) uses OmniVoice's built-in
-speaker for the requested language.
+A `default` voice is also advertised; requesting it (or an empty/unknown voice
+name) uses OmniVoice's built-in speaker for the requested language.
+
+OmniVoice lists 646 language codes, most of them ISO 639-3 only. Advertising all
+of them buries the usable ones in Home Assistant's language picker, so `default`
+is advertised for the ~128 that have an ISO 639-1 (two-letter) tag, plus
+Cantonese, Standard Arabic and Odia. This limits only what is *advertised* —
+`--omnivoice-language` and a per-request language still accept any code
+OmniVoice knows, so the rest stay reachable.
 
 On first use, each reference is encoded and cached next to `ref.wav` as
 `ref.rvq` (regenerated whenever `ref.wav` is newer), so the reference isn't
@@ -118,28 +126,44 @@ effect for the running server after you **reload the Piper integration or
 restart Home Assistant**, so the UI reminds you after every change.
 
 `--web-server-host` / `--web-server-port` set the bind address (default
-`127.0.0.1:5000`).
+`127.0.0.1:5000`). The UI has no authentication and can upload and delete files
+under `--download-dir` / `--omnivoice-ref-dir`, so only bind it to an address
+reachable from a network you trust.
 
 ## Docker Image
 
 ``` sh
 docker run -it \
-    -p 10200:10200 -p 5000:5000 \
+    -p 10200:10200 \
     -v /path/to/local/data:/data \
     rhasspy/wyoming-piper \
     --voice en_US-lessac-medium
 ```
 
-With OmniVoice instead of Piper:
+OmniVoice ships as a separate `omnivoice` tag, because it pulls in torch and
+transformers. It is built for `linux/amd64` only — OmniVoice needs a
+desktop/server CPU:
+
+``` sh
+docker run -it \
+    -p 10200:10200 \
+    -v /path/to/local/data:/data \
+    rhasspy/wyoming-piper:omnivoice \
+    --backend omnivoice \
+    --omnivoice-ref-dir /data/cloned-voices \
+    --omnivoice-steps 10  # higher = better quality but slower
+```
+
+The voice management web UI is **off by default**. It has no authentication, so
+only enable it on a network you trust:
 
 ``` sh
 docker run -it \
     -p 10200:10200 -p 5000:5000 \
     -v /path/to/local/data:/data \
     rhasspy/wyoming-piper \
-    --backend omnivoice \
-    --omnivoice-ref-dir /data/cloned-voices \
-    --omnivoice-steps 10  # higher = better quality but slower
+    --voice en_US-lessac-medium \
+    --web-server --web-server-host 0.0.0.0
 ```
 
 [Source](https://github.com/rhasspy/wyoming-addons/tree/master/piper)
