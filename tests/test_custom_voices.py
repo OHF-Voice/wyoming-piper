@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 import pytest
 
 from wyoming_piper.__main__ import _setup_piper
+from wyoming_piper.download import VoiceNotFoundError
 
 _MISMATCHED = "en_GB-jarvis-medium"  # config says dataset="jarvis-medium"
 _MATCHED = "en_US-custom-high"
@@ -90,6 +91,58 @@ def test_dataset_name_still_accepted(
     _wyoming_info, voices_info = setup_result
     assert _resolve(voices_info, "jarvis-medium") == _MISMATCHED
     assert (data_dir / f"{_MISMATCHED}.onnx").exists()
+
+
+def test_dataset_name_accepted_as_default_voice(data_dir: Path) -> None:
+    """--voice may be the "dataset" name older versions advertised."""
+    args = argparse.Namespace(
+        backend="piper",
+        voice="jarvis-medium",
+        data_dir=[str(data_dir)],
+        download_dir=str(data_dir),
+        update_voices=False,
+        no_streaming=False,
+    )
+    _wyoming_info, voices_info = _setup_piper(args)
+
+    assert _resolve(voices_info, "jarvis-medium") == _MISMATCHED
+
+
+def test_unusable_custom_voice_does_not_prevent_startup(data_dir: Path) -> None:
+    """A broken custom voice is skipped, not fatal (e.g. interrupted upload)."""
+    (data_dir / "orphan.onnx").touch()  # model with no config
+    (data_dir / "corrupt.onnx").touch()
+    (data_dir / "corrupt.onnx.json").write_text("{not json", encoding="utf-8")
+
+    args = argparse.Namespace(
+        backend="piper",
+        voice=_MATCHED,
+        data_dir=[str(data_dir)],
+        download_dir=str(data_dir),
+        update_voices=False,
+        no_streaming=False,
+    )
+    wyoming_info, _voices_info = _setup_piper(args)
+
+    names = {v.name for v in wyoming_info.tts[0].voices}
+    assert "orphan" not in names
+    assert "corrupt" not in names
+    # The usable voices are still advertised
+    assert {_MATCHED, _MISMATCHED} <= names
+
+
+def test_missing_default_voice_still_raises(data_dir: Path) -> None:
+    """Skipping broken voices must not hide a bad --voice."""
+    args = argparse.Namespace(
+        backend="piper",
+        voice="does-not-exist",
+        data_dir=[str(data_dir)],
+        download_dir=str(data_dir),
+        update_voices=False,
+        no_streaming=False,
+    )
+    with pytest.raises(VoiceNotFoundError):
+        _setup_piper(args)
 
 
 def test_catalog_voice_not_shadowed_by_dataset_alias(data_dir: Path) -> None:

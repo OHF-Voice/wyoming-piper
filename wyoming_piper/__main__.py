@@ -6,13 +6,13 @@ import logging
 import signal
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, Set
+from typing import Any, Dict, List, Set
 
 from wyoming.info import Attribution, Info, TtsProgram, TtsVoice, TtsVoiceSpeaker
 from wyoming.server import AsyncServer, AsyncTcpServer
 
 from . import __version__
-from .download import ensure_voice_exists, find_voice, get_voices
+from .download import VoiceNotFoundError, ensure_voice_exists, find_voice, get_voices
 from .handler import PiperEventHandler, get_omnivoice_voices, load_omnivoice
 
 _LOGGER = logging.getLogger(__name__)
@@ -265,9 +265,6 @@ def _setup_piper(args: argparse.Namespace) -> "tuple[Info, Dict[str, Any]]":
     ]
 
     custom_voice_names: Set[str] = set()
-    if args.voice not in voices_info:
-        custom_voice_names.add(args.voice)
-
     for data_dir in args.data_dir:
         data_dir = Path(data_dir)
         if not data_dir.is_dir():
@@ -278,46 +275,16 @@ def _setup_piper(args: argparse.Namespace) -> "tuple[Info, Dict[str, Any]]":
             if custom_voice_name not in voices_info:
                 custom_voice_names.add(custom_voice_name)
 
-    for custom_voice_name in custom_voice_names:
-        # Add custom voice info
-        custom_voice_path, custom_config_path = find_voice(
-            custom_voice_name, args.data_dir
-        )
-        with open(custom_config_path, "r", encoding="utf-8") as custom_config_file:
-            custom_config = json.load(custom_config_file)
+    # Sorted so the "dataset" aliases below are registered deterministically
+    # when two custom voices claim the same dataset name.
+    for custom_voice_name in sorted(custom_voice_names):
+        _add_custom_voice(custom_voice_name, args, voices_info, voices)
 
-        dataset_name = custom_config.get("dataset", custom_voice_path.stem)
-        custom_quality = custom_config.get("audio", {}).get("quality")
-        if custom_quality:
-            description = f"{dataset_name} ({custom_quality})"
-        else:
-            description = dataset_name
-
-        lang_code = custom_config.get("language", {}).get("code")
-        if not lang_code:
-            lang_code = custom_config.get("espeak", {}).get("voice")
-            if not lang_code:
-                lang_code = custom_voice_path.stem.split("_")[0]
-
-        # Advertise the name that find_voice() can resolve, not the "dataset"
-        # field, which often disagrees with the file name.
-        voices.append(
-            TtsVoice(
-                name=custom_voice_name,
-                description=description,
-                version=None,
-                attribution=Attribution(name="", url=""),
-                installed=True,
-                languages=[lang_code],
-            )
-        )
-
-        if dataset_name != custom_voice_name:
-            # Older versions advertised "dataset" as the voice name, so keep
-            # accepting it from clients that stored it.
-            voices_info.setdefault(
-                dataset_name, {"_is_alias": True, "key": custom_voice_name}
-            )
+    if (args.voice not in voices_info) and (args.voice not in custom_voice_names):
+        # The default voice is not a catalog voice and was not found in a data
+        # dir, so try it as a name or path of its own. This runs after the scan
+        # above so that a "dataset" alias registered there can resolve it.
+        _add_custom_voice(args.voice, args, voices_info, voices)
 
     wyoming_info = Info(
         tts=[
@@ -343,6 +310,74 @@ def _setup_piper(args: argparse.Namespace) -> "tuple[Info, Dict[str, Any]]":
     ensure_voice_exists(voice_name, args.data_dir, args.download_dir, voices_info)
 
     return wyoming_info, voices_info
+
+
+def _add_custom_voice(
+    custom_voice_name: str,
+    args: argparse.Namespace,
+    voices_info: Dict[str, Any],
+    voices: List[TtsVoice],
+) -> None:
+    """Advertise one custom voice, registering its "dataset" name as an alias.
+
+    A voice whose files are missing or unreadable is skipped with a warning
+    instead of raising: a leftover ``.onnx`` with no ``.onnx.json`` (an
+    interrupted upload, say) must not stop the server from starting. The default
+    voice is still checked by ``ensure_voice_exists``, so a broken ``--voice``
+    remains a hard error.
+    """
+    try:
+        custom_voice_path, custom_config_path = find_voice(
+            custom_voice_name, args.data_dir
+        )
+        with open(custom_config_path, "r", encoding="utf-8") as custom_config_file:
+            custom_config = json.load(custom_config_file)
+    except VoiceNotFoundError:
+        _LOGGER.warning(
+            "Skipping custom voice '%s': no matching .onnx and .onnx.json pair",
+            custom_voice_name,
+        )
+        return
+    except (OSError, ValueError) as err:
+        _LOGGER.warning(
+            "Skipping custom voice '%s': could not read config: %s",
+            custom_voice_name,
+            err,
+        )
+        return
+
+    dataset_name = custom_config.get("dataset", custom_voice_path.stem)
+    custom_quality = custom_config.get("audio", {}).get("quality")
+    if custom_quality:
+        description = f"{dataset_name} ({custom_quality})"
+    else:
+        description = dataset_name
+
+    lang_code = custom_config.get("language", {}).get("code")
+    if not lang_code:
+        lang_code = custom_config.get("espeak", {}).get("voice")
+        if not lang_code:
+            lang_code = custom_voice_path.stem.split("_")[0]
+
+    # Advertise the name that find_voice() can resolve, not the "dataset"
+    # field, which often disagrees with the file name.
+    voices.append(
+        TtsVoice(
+            name=custom_voice_name,
+            description=description,
+            version=None,
+            attribution=Attribution(name="", url=""),
+            installed=True,
+            languages=[lang_code],
+        )
+    )
+
+    if dataset_name != custom_voice_name:
+        # Older versions advertised "dataset" as the voice name, so keep
+        # accepting it from clients that stored it (and from --voice).
+        voices_info.setdefault(
+            dataset_name, {"_is_alias": True, "key": custom_voice_name}
+        )
 
 
 # -----------------------------------------------------------------------------

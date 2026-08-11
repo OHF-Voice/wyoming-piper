@@ -279,8 +279,10 @@ def make_web_server(cli_args: argparse.Namespace) -> Flask:
         onnx_path = download_dir / f"{base}.onnx"
         config_path = download_dir / f"{base}.onnx.json"
 
-        onnx_file.save(onnx_path)
+        # Config first: voices are discovered by globbing *.onnx, so if this is
+        # interrupted a stray config is ignored, while a stray model is not.
         config_path.write_bytes(config_bytes)
+        onnx_file.save(onnx_path)
         _LOGGER.info("Uploaded custom Piper voice: %s", base)
 
         return jsonify({"ok": True, "name": base, "message": RELOAD_MESSAGE})
@@ -603,8 +605,10 @@ const api = (p) => BASE + p;
 const el = (id) => document.getElementById(id);
 
 function esc(s) {
-  return String(s == null ? "" : s).replace(/[&<>"]/g,
-    c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+  // Note: '\'' matters -- attributes below are single-quoted and values like
+  // an OmniVoice transcript routinely contain apostrophes.
+  return String(s == null ? "" : s).replace(/[&<>"']/g,
+    c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 }
 function fmtSize(n) {
   if (n == null) return "";

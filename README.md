@@ -118,28 +118,44 @@ effect for the running server after you **reload the Piper integration or
 restart Home Assistant**, so the UI reminds you after every change.
 
 `--web-server-host` / `--web-server-port` set the bind address (default
-`127.0.0.1:5000`).
+`127.0.0.1:5000`). The UI has no authentication and can upload and delete files
+under `--download-dir` / `--omnivoice-ref-dir`, so only bind it to an address
+reachable from a network you trust.
 
 ## Docker Image
 
 ``` sh
 docker run -it \
-    -p 10200:10200 -p 5000:5000 \
+    -p 10200:10200 \
     -v /path/to/local/data:/data \
     rhasspy/wyoming-piper \
     --voice en_US-lessac-medium
 ```
 
-With OmniVoice instead of Piper:
+OmniVoice ships as a separate `omnivoice` tag, because it pulls in torch and
+transformers. It is built for `linux/amd64` only — OmniVoice needs a
+desktop/server CPU:
+
+``` sh
+docker run -it \
+    -p 10200:10200 \
+    -v /path/to/local/data:/data \
+    rhasspy/wyoming-piper:omnivoice \
+    --backend omnivoice \
+    --omnivoice-ref-dir /data/cloned-voices \
+    --omnivoice-steps 10  # higher = better quality but slower
+```
+
+The voice management web UI is **off by default**. It has no authentication, so
+only enable it on a network you trust:
 
 ``` sh
 docker run -it \
     -p 10200:10200 -p 5000:5000 \
     -v /path/to/local/data:/data \
     rhasspy/wyoming-piper \
-    --backend omnivoice \
-    --omnivoice-ref-dir /data/cloned-voices \
-    --omnivoice-steps 10  # higher = better quality but slower
+    --voice en_US-lessac-medium \
+    --web-server --web-server-host 0.0.0.0
 ```
 
 [Source](https://github.com/rhasspy/wyoming-addons/tree/master/piper)

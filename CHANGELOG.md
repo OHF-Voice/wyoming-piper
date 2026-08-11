@@ -18,12 +18,17 @@
       `script/quantize_omnivoice.py`
     - the ONNX model is used from a `--data-dir` if present there, otherwise
       downloaded into `--download-dir` (used as the HuggingFace cache)
-    - install with the `omnivoice` optional dependencies
+    - install with the `omnivoice` optional dependencies. For Docker, this is a
+      separate `rhasspy/wyoming-piper:omnivoice` image (amd64 only) so the
+      default image doesn't grow a torch/transformers dependency.
 - Add `--local-files-only` to run the HuggingFace loader in offline mode
 - Add `--web-server` for a web UI (runs alongside the Wyoming server) to manage custom and cloned voices
 - Fix custom voices being advertised under their `dataset` name instead of their
   file name, which made them impossible to synthesize when the two disagreed.
-  The `dataset` name is still accepted as an alias.
+  The `dataset` name is still accepted as an alias, including as `--voice`.
+- Fix a custom voice with missing or unreadable files (a leftover `.onnx` with no
+  `.onnx.json`, for example) stopping the server from starting. It is now skipped
+  with a warning; a broken `--voice` is still an error.
 
 ## 2.3.1
 

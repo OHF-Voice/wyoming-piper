@@ -93,8 +93,26 @@ jobs:
           tags: |
             rhasspy/wyoming-piper:latest
             rhasspy/wyoming-piper:${{ steps.read_ver.outputs.tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=piper
+          cache-to: type=gha,mode=max,scope=piper
+
+      # OmniVoice pulls in torch/transformers, so it ships as its own tag
+      # instead of bloating the default image. amd64 only: OmniVoice needs a
+      # desktop/server CPU, and cross-building torch under QEMU is impractical.
+      - name: Build (OmniVoice)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          build-args: |
+            EXTRAS=zeroconf,zh,web,omnivoice
+          push: true
+          tags: |
+            rhasspy/wyoming-piper:omnivoice
+            rhasspy/wyoming-piper:${{ steps.read_ver.outputs.tag }}-omnivoice
+          cache-from: type=gha,scope=omnivoice
+          cache-to: type=gha,mode=max,scope=omnivoice
 
   changelog:
     needs: build
