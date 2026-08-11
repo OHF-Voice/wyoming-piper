@@ -161,6 +161,31 @@ async def main() -> None:
     )
     _LOGGER.debug(args)
 
+    # Optional web UI for managing custom voices, in a background thread. Started
+    # before the backend below, which can spend minutes downloading a model: the
+    # UI only reads directories, so it does not need the backend, and a missing
+    # dependency or an unavailable port should fail now rather than after the
+    # wait.
+    if args.web_server:
+        try:
+            from .web_server import make_web_server, run_web_server
+        except ImportError as err:
+            parser.error(
+                f"--web-server requires the 'web' optional dependencies ({err})"
+            )
+
+        try:
+            run_web_server(
+                make_web_server(args),
+                host=args.web_server_host,
+                port=args.web_server_port,
+            )
+        except OSError as err:
+            parser.error(
+                f"Could not start web UI on {args.web_server_host}:"
+                f"{args.web_server_port} ({err})"
+            )
+
     if args.backend == "omnivoice":
         wyoming_info, voices_info = _setup_omnivoice(args)
     else:
@@ -184,21 +209,6 @@ async def main() -> None:
         )
         await hass_zeroconf.register_server()
         _LOGGER.debug("Zeroconf discovery enabled")
-
-    # Optional web UI for managing custom voices, in a background thread.
-    if args.web_server:
-        try:
-            from .web_server import make_web_server, run_web_server
-        except ImportError as err:
-            parser.error(
-                f"--web-server requires the 'web' optional dependencies ({err})"
-            )
-
-        run_web_server(
-            make_web_server(args),
-            host=args.web_server_host,
-            port=args.web_server_port,
-        )
 
     _LOGGER.info("Ready")
     server_task = asyncio.create_task(

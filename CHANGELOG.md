@@ -11,7 +11,10 @@
       style). A `default` voice is also advertised for every supported language;
       it (or an empty/unknown voice name) uses the built-in speaker.
     - `--omnivoice-language` to set the default synthesis language (default:
-      English); per-request language codes (`en_US`, `en-US`) are also honored
+      English); per-request language codes (`en_US`, `en-US`) are also honored.
+      The `default` voice is advertised for the ~128 languages with an ISO 639-1
+      tag (plus Cantonese, Standard Arabic and Odia) rather than all 646 codes
+      OmniVoice lists; the rest are still reachable, just not advertised
     - `--omnivoice-onnx-repo` to override the HuggingFace repo for the ONNX graph
     - block-wise int4 quantization is hardcoded for now (clean audio at low step
       counts, e.g. `--omnivoice-steps 10`); reproduce with
@@ -21,8 +24,13 @@
     - install with the `omnivoice` optional dependencies. For Docker, this is a
       separate `rhasspy/wyoming-piper:omnivoice` image (amd64 only) so the
       default image doesn't grow a torch/transformers dependency.
+- Require Python 3.10 or later (the `omnivoice` dependencies need it)
 - Add `--local-files-only` to run the HuggingFace loader in offline mode
-- Add `--web-server` for a web UI (runs alongside the Wyoming server) to manage custom and cloned voices
+- Add `--web-server` for a web UI (runs alongside the Wyoming server) to manage
+  custom and cloned voices. Custom Piper voices are managed across every
+  `--data-dir`, not just `--download-dir` (where uploads still land). Missing
+  dependencies and an unavailable port are reported at startup, before the
+  backend loads its model.
 - Fix custom voices being advertised under their `dataset` name instead of their
   file name, which made them impossible to synthesize when the two disagreed.
   The `dataset` name is still accepted as an alias, including as `--voice`.

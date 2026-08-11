@@ -40,6 +40,18 @@ PIPELINE_REPO = "k2-fsa/OmniVoice"
 # voice name. Reserved: cannot be a cloning voice.
 DEFAULT_VOICE_NAME = "default"
 
+# Languages OmniVoice knows only by an ISO 639-3 code, advertised under the
+# ISO 639-1 tag clients actually send and translated back at synthesis time.
+# A macrolanguage maps to its "standard" variety.
+LANGUAGE_ALIASES = {
+    "ar": "arb",  # Standard Arabic (OmniVoice has 21 Arabic varieties, no "ar")
+    "or": "ory",  # Odia
+}
+
+# Widely-spoken languages that have no ISO 639-1 tag at all, so the two-letter
+# filter in get_supported_languages() would drop them.
+EXTRA_LANGUAGES = ("yue",)  # Cantonese
+
 
 def advertise_language(code: str) -> str:
     """Format a language for the Wyoming Info in the BCP-47 form HA expects.
@@ -51,10 +63,27 @@ def advertise_language(code: str) -> str:
 
 
 def get_supported_languages() -> List[str]:
-    """All languages OmniVoice supports, as HA-facing codes (e.g. 'en', 'zh')."""
+    """Languages to advertise for the built-in speaker (e.g. 'en', 'zh').
+
+    OmniVoice's ``LANG_IDS`` holds 646 codes, 521 of them ISO 639-3 only --
+    languages a Wyoming client cannot resolve or display, which bury the usable
+    ones in Home Assistant's language picker. Advertise just the codes that have
+    an ISO 639-1 (two-letter) form, since that is what BCP-47 consumers resolve.
+
+    :data:`LANGUAGE_ALIASES` and :data:`EXTRA_LANGUAGES` add back the widely
+    spoken languages that filter would otherwise drop.
+
+    This narrows what is *advertised* only: ``--omnivoice-language`` and a
+    per-request language still accept any code OmniVoice knows, so nothing
+    becomes unreachable (see :func:`_normalize_language`).
+    """
     from omnivoice.utils.lang_map import LANG_IDS
 
-    return sorted(advertise_language(code) for code in LANG_IDS)
+    codes = {code for code in LANG_IDS if len(code) == 2}
+    codes.update(tag for tag, code in LANGUAGE_ALIASES.items() if code in LANG_IDS)
+    codes.update(code for code in EXTRA_LANGUAGES if code in LANG_IDS)
+
+    return sorted(advertise_language(code) for code in codes)
 
 
 def _normalize_language(language: Optional[str]) -> Optional[str]:
@@ -64,7 +93,8 @@ def _normalize_language(language: Optional[str]) -> Optional[str]:
     locale codes like ``en-US`` / ``en_US``, which it silently treats as
     language-agnostic. Pass the raw value through when it already resolves
     (this preserves the hyphenated language *names* OmniVoice supports);
-    otherwise strip the region subtag (``en_US`` -> ``en``).
+    otherwise strip the region subtag (``en_US`` -> ``en``) and translate an
+    advertised ISO 639-1 tag OmniVoice lacks (``ar`` -> ``arb``).
     """
     if not language or language.lower() == "none":
         return language
@@ -75,6 +105,10 @@ def _normalize_language(language: Optional[str]) -> Optional[str]:
         return language
 
     primary = re.split(r"[-_]", language, maxsplit=1)[0].lower()
+    if primary in LANGUAGE_ALIASES:
+        # Advertised under the 639-1 tag, so it has to resolve back here.
+        return LANGUAGE_ALIASES[primary]
+
     if primary in LANG_IDS:
         return primary
 
