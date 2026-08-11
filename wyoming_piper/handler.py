@@ -6,7 +6,7 @@ import logging
 import math
 import tempfile
 import wave
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from piper import PiperVoice, SynthesisConfig
 from sentence_stream import SentenceBoundaryDetector
@@ -42,23 +42,39 @@ def get_omnivoice_voices() -> Dict[str, Any]:
     return _OMNIVOICE_VOICES
 
 
+def reload_omnivoice_voices(cli_args: argparse.Namespace) -> Dict[str, Any]:
+    """Rescan ``--omnivoice-ref-dir`` and return the voices now on disk.
+
+    Voices are added and removed while the server runs -- by the web UI, or by
+    hand -- so the reference directory is rescanned instead of being trusted
+    from startup. Scanning only walks directories and reads small text files.
+    """
+    global _OMNIVOICE_VOICES
+
+    if cli_args.omnivoice_ref_dir:
+        from .omnivoice import scan_ref_dir
+
+        _OMNIVOICE_VOICES = {
+            v.name: v for v in scan_ref_dir(cli_args.omnivoice_ref_dir)
+        }
+
+    return _OMNIVOICE_VOICES
+
+
 def load_omnivoice(cli_args: argparse.Namespace) -> None:
     """Load the shared OmniVoice model once (no-op if already loaded).
 
     Called at startup so the (heavy) model is ready before the first request;
     handlers share this single instance, serialized by ``_VOICE_LOCK``.
     """
-    global _OMNIVOICE, _OMNIVOICE_VOICES
+    global _OMNIVOICE
 
     if _OMNIVOICE is not None:
         return
 
-    from .omnivoice import OmniVoiceModel, ensure_omnivoice_downloaded, scan_ref_dir
+    from .omnivoice import OmniVoiceModel, ensure_omnivoice_downloaded
 
-    if cli_args.omnivoice_ref_dir:
-        _OMNIVOICE_VOICES = {
-            v.name: v for v in scan_ref_dir(cli_args.omnivoice_ref_dir)
-        }
+    reload_omnivoice_voices(cli_args)
 
     _LOGGER.info("Loading OmniVoice model")
     onnx_path = ensure_omnivoice_downloaded(
@@ -84,7 +100,7 @@ def _silence_bytes(wav_writer: wave.Wave_write, seconds: float) -> bytes:
 class PiperEventHandler(AsyncEventHandler):
     def __init__(
         self,
-        wyoming_info: Info,
+        info_factory: Callable[[], Info],
         cli_args: argparse.Namespace,
         voices_info: Dict[str, Any],
         *args,
@@ -93,7 +109,9 @@ class PiperEventHandler(AsyncEventHandler):
         super().__init__(*args, **kwargs)
 
         self.cli_args = cli_args
-        self.wyoming_info_event = wyoming_info.event()
+        # Called per Describe rather than captured once, so voices added while
+        # the server runs are advertised without restarting the process.
+        self.info_factory = info_factory
         self.voices_info = voices_info
         self.is_streaming: Optional[bool] = None
         self.sbd = SentenceBoundaryDetector()
@@ -101,7 +119,7 @@ class PiperEventHandler(AsyncEventHandler):
 
     async def handle_event(self, event: Event) -> bool:
         if Describe.is_type(event.type):
-            await self.write_event(self.wyoming_info_event)
+            await self.write_event(self.info_factory().event())
             _LOGGER.debug("Sent info")
             return True
 
@@ -378,8 +396,16 @@ class PiperEventHandler(AsyncEventHandler):
         if voice_name and voice_name != DEFAULT_VOICE_NAME:
             ref = _OMNIVOICE_VOICES.get(voice_name)
             if ref is None:
-                _LOGGER.debug(
-                    "Unknown OmniVoice voice %r; using built-in speaker", voice_name
+                # Added since the last scan? Look again before giving up, so a
+                # voice works as soon as it is created.
+                ref = reload_omnivoice_voices(self.cli_args).get(voice_name)
+
+            if ref is None:
+                # Warn, not debug: falling back to a different speaker is not
+                # something to discover only with debug logging on.
+                _LOGGER.warning(
+                    "Unknown OmniVoice voice %r; using the built-in speaker",
+                    voice_name,
                 )
 
         if ref is not None:

@@ -121,9 +121,9 @@ Then visit http://localhost:5000. The page has two sections:
   cloned voice's whole directory.
 
 Each section shows a warning when its backend is not the one the server was
-started with (via `--backend`), but the UI keeps working. Changes only take
-effect for the running server after you **reload the Piper integration or
-restart Home Assistant**, so the UI reminds you after every change.
+started with (via `--backend`), but the UI keeps working. The server picks up
+added and removed voices on its own — no restart — but Home Assistant caches the
+voice list, so **reload the Piper integration** for a new voice to appear in it.
 
 `--web-server-host` / `--web-server-port` set the bind address (default
 `127.0.0.1:5000`). The UI has no authentication and can upload and delete files

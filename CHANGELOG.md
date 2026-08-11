@@ -31,6 +31,11 @@
   `--data-dir`, not just `--download-dir` (where uploads still land). Missing
   dependencies and an unavailable port are reported at startup, before the
   backend loads its model.
+- Fix voices added or removed while the server runs being ignored until the
+  process restarted. The voice list was built once at startup, so a voice added
+  through the web UI was never advertised, and requesting it silently fell back
+  to the OmniVoice built-in speaker. Voices are now rescanned per `Describe` and
+  when an unknown voice is requested.
 - Fix custom voices being advertised under their `dataset` name instead of their
   file name, which made them impossible to synthesize when the two disagreed.
   The `dataset` name is still accepted as an alias, including as `--voice`.
