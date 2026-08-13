@@ -59,14 +59,18 @@ disallow_untyped_defs = true
 dev = [
     "black",
     "flake8",
+    "isort",
     "mypy",
     "pylint",
     "pytest",
     "pytest-asyncio",
     "build",
-    "flask>=3,<4",
+    # For tests/test_web_server.py
+    "wyoming-piper[web]",
+    # For tests/dtw.py and the MFCC comparison in tests/test_piper.py.
+    # numpy<2 has no wheels for Python 3.13, which is what CI runs on.
     "scipy>=1.10,<2",
-    "numpy>=1.20,<2",
+    "numpy>=1.26,<3",
     "python-speech-features>=0.6,<1",
 ]
 http = [
