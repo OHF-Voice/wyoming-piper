@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.1
+
+- Bump piper floor to 1.6.1 for reduced `zh` deps
+
 ## 2.4.0
 
 - Add experimental `--backend omnivoice` for [OmniVoice](https://github.com/k2-fsa/OmniVoice) TTS via onnxruntime
