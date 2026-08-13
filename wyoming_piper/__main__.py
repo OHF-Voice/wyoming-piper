@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import asyncio
+import importlib.util
 import json
 import logging
 import signal
@@ -187,6 +188,16 @@ async def main() -> None:
             )
 
     if args.backend == "omnivoice":
+        # The omnivoice package is installed separately from its dependencies
+        # (see the omnivoice-deps extra), so it can be the only missing piece.
+        # Report that here rather than from an ImportError minutes into loading.
+        if importlib.util.find_spec("omnivoice") is None:
+            parser.error(
+                "--backend omnivoice requires the omnivoice package: "
+                "'pip install --no-deps omnivoice' (--no-deps skips its demo "
+                "and training dependencies, which this backend does not use)"
+            )
+
         info_factory, voices_info = _setup_omnivoice(args)
     else:
         if not args.voice:

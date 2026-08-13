@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 ARG TARGETARCH
 ARG TARGETVARIANT
 
@@ -38,14 +38,28 @@ RUN \
     # PyPI, so pip resolved the default wheels and ~2.7 GB of unused CUDA libs.
     # --index-url is what actually pins it to the CPU builds.
     && TORCH="torch" \
-    && if echo "${EXTRAS}" | grep -q omnivoice; then TORCH="torch torchaudio"; fi \
+    && WANT_OMNIVOICE="" \
+    && INSTALL_EXTRAS="${EXTRAS}" \
+    && if echo ",${EXTRAS}," | grep -q ",omnivoice,"; then \
+        TORCH="torch torchaudio"; \
+        WANT_OMNIVOICE="1"; \
+        # Install the omnivoice package separately, without its dependencies:
+        # it requires gradio, librosa, webdataset and tensorboardx for its demo
+        # and training paths, which this backend never imports (42 packages,
+        # ~600 MB). The omnivoice-deps extra pins what is actually needed.
+        INSTALL_EXTRAS="$(echo "${EXTRAS}" | sed 's/\bomnivoice\b/omnivoice-deps/')"; \
+    fi \
     && .venv/bin/pip3 install --no-cache-dir \
         --index-url https://download.pytorch.org/whl/cpu \
         ${TORCH} \
     \
     && .venv/bin/pip3 install --no-cache-dir \
         --extra-index-url https://www.piwheels.org/simple \
-        -e ".[${EXTRAS}]" \
+        -e ".[${INSTALL_EXTRAS}]" \
+    \
+    && if [ -n "${WANT_OMNIVOICE}" ]; then \
+        .venv/bin/pip3 install --no-cache-dir --no-deps omnivoice; \
+    fi \
     \
     && rm -rf /var/lib/apt/lists/*
 

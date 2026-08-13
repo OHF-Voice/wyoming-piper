@@ -1,6 +1,6 @@
 [project]
 name = "wyoming-piper"
-version = "2.4.1"
+version = "2.4.2"
 description = "Wyoming Server for Piper"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -78,11 +78,31 @@ zeroconf = [
 zh = [
     "piper-tts[zh]",
 ]
-omnivoice = [
-    "omnivoice",
+# Everything the ONNX inference path actually imports, minus the omnivoice
+# package itself. Pair with a separate "pip install --no-deps omnivoice":
+# omnivoice requires gradio, librosa, webdataset and tensorboardx for its demo
+# and training paths, none of which this backend imports, and skipping them drops
+# 42 packages and ~600 MB. --no-deps cannot be expressed in an extra, so the two
+# steps stay separate (see the Dockerfile and script/setup).
+# audioop-lts is needed because pydub imports the stdlib audioop, removed in
+# Python 3.13; it otherwise arrives only as a gradio dependency.
+omnivoice-deps = [
+    "torch",
+    "torchaudio",
+    "transformers",
+    "accelerate",
+    "pydub",
+    "soundfile",
+    "audioop-lts; python_version >= '3.13'",
     "onnxruntime",
     "huggingface_hub",
     "numpy",
+]
+# Self-contained, and ~600 MB heavier, since resolving the omnivoice package
+# pulls its full dependency set. Prefer omnivoice-deps plus --no-deps omnivoice.
+omnivoice = [
+    "wyoming-piper[omnivoice-deps]",
+    "omnivoice",
 ]
 web = [
     "flask>=3,<4",

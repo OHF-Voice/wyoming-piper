@@ -53,6 +53,17 @@ script/run --backend omnivoice \
     --omnivoice-ref-dir /data/omnivoice_voices --omnivoice-steps 32
 ```
 
+Installing with pip takes two steps, because the `omnivoice` package requires
+gradio, librosa, webdataset and tensorboardx for its demo and training paths,
+which this backend never imports. Skipping them drops 42 packages and ~600 MB:
+
+``` sh
+pip install 'wyoming-piper[omnivoice-deps]'
+pip install --no-deps omnivoice
+```
+
+The `omnivoice` extra installs both in one step instead, at that extra ~600 MB.
+
 **Voices.** Point `--omnivoice-ref-dir` at a directory of voices organized as
 `<language>/<voice_name>/`, for example:
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.2
+
+- Reduce unnecessary deps for `omnivoice`
+- Bump Docker image to trixie
+
 ## 2.4.1
 
 - Bump piper floor to 1.6.1 for reduced `zh` deps

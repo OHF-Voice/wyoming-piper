@@ -41,7 +41,10 @@ if args.zh:
     extras.append("zh")
 
 if args.omnivoice:
-    extras.append("omnivoice")
+    # Not the "omnivoice" extra: the omnivoice package is installed below
+    # without its dependencies, which are mostly for its demo and training
+    # paths (42 packages, ~600 MB this backend never imports).
+    extras.append("omnivoice-deps")
 
 if args.web:
     extras.append("web")
@@ -52,3 +55,6 @@ if extras:
 
 # Install requirements
 subprocess.check_call(pip + ["install", "-e", f"{_PROGRAM_DIR}{extras_str}"])
+
+if args.omnivoice:
+    subprocess.check_call(pip + ["install", "--no-deps", "omnivoice"])
