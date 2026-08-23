@@ -1,6 +1,6 @@
 # Wyoming Piper
 
-[Wyoming protocol](https://github.com/rhasspy/wyoming) server for the [Piper](https://github.com/rhasspy/piper/) text to speech system.
+[Wyoming protocol](https://github.com/OHF-Voice/wyoming) server for the [Piper](https://github.com/OHF-Voice/piper1-gpl) text to speech system.
 
 ## Home Assistant Add-on
 
@@ -15,7 +15,7 @@ Requires Python 3.10 or later.
 Clone the repository and set up Python virtual environment:
 
 ``` sh
-git clone https://github.com/rhasspy/wyoming-piper.git
+git clone https://github.com/OHF-Voice/wyoming-piper.git
 cd wyoming-piper
 script/setup
 ```
