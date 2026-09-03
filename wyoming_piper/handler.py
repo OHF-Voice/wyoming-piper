@@ -37,6 +37,15 @@ _OMNIVOICE: Optional[Any] = None
 _OMNIVOICE_VOICES: Dict[str, Any] = {}  # voice name -> OmniVoiceRef
 
 
+def _preload_cuda_libraries() -> None:
+    """Make PyTorch's bundled CUDA libraries available to ONNX Runtime."""
+    try:
+        __import__("torch")
+    except ImportError:
+        # Standalone ONNX Runtime installations may use system CUDA libraries.
+        _LOGGER.debug("PyTorch is not installed; using system CUDA libraries")
+
+
 def get_omnivoice_voices() -> Dict[str, Any]:
     """Return the loaded OmniVoice reference voices (name -> OmniVoiceRef)."""
     return _OMNIVOICE_VOICES
@@ -72,6 +81,9 @@ def load_omnivoice(cli_args: argparse.Namespace) -> None:
     if _OMNIVOICE is not None:
         return
 
+    if cli_args.use_cuda:
+        _preload_cuda_libraries()
+
     from .omnivoice import OmniVoiceModel, ensure_omnivoice_downloaded
 
     reload_omnivoice_voices(cli_args)
@@ -87,6 +99,7 @@ def load_omnivoice(cli_args: argparse.Namespace) -> None:
         num_step=cli_args.omnivoice_steps,
         default_language=cli_args.omnivoice_language,
         local_files_only=cli_args.local_files_only,
+        use_cuda=cli_args.use_cuda,
     )
 
 
@@ -333,6 +346,9 @@ class PiperEventHandler(AsyncEventHandler):
         if voice_name != _VOICE_NAME:
             # Load new voice
             _LOGGER.debug("Loading voice: %s", voice_name)
+            if self.cli_args.use_cuda:
+                _preload_cuda_libraries()
+
             ensure_voice_exists(
                 voice_name,
                 self.cli_args.data_dir,
