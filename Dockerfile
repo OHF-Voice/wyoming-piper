@@ -68,4 +68,12 @@ COPY ./ ./
 EXPOSE 10200
 EXPOSE 5000
 
+# The server only starts listening once the backend is loaded, which means
+# downloading a model on first run -- hence the long start period, during which
+# failures don't count against --retries. --retries covers the other direction:
+# synthesis runs on the event loop, so a check can time out behind a long
+# request without the server being unhealthy.
+HEALTHCHECK --interval=30s --timeout=20s --start-period=5m --retries=3 \
+    CMD ["/usr/src/.venv/bin/python3", "-m", "wyoming_piper.health_check"]
+
 ENTRYPOINT ["bash", "docker_run.sh"]

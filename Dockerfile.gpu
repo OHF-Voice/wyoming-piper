@@ -37,6 +37,9 @@ COPY ./ ./
 EXPOSE 10200
 EXPOSE 5000
 
+HEALTHCHECK --interval=30s --timeout=20s --start-period=5m --retries=3 \
+    CMD ["/usr/src/.venv/bin/python3", "-m", "wyoming_piper.health_check"]
+
 # GPU acceleration is always enabled for this image. Additional options can be
 # passed normally or through WYOMING_PIPER_ARGS.
 ENTRYPOINT ["bash", "docker_run.sh", "--use-cuda"]
