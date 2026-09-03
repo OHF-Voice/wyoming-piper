@@ -4,7 +4,10 @@ import asyncio
 import importlib.util
 import json
 import logging
+import os
+import shlex
 import signal
+import sys
 from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Set
@@ -151,7 +154,15 @@ async def main() -> None:
         version=__version__,
         help="Print version and exit",
     )
-    args = parser.parse_args()
+    cli_args = sys.argv[1:]
+    env_args = os.environ.get("WYOMING_PIPER_ARGS")
+    if env_args:
+        try:
+            cli_args.extend(shlex.split(env_args))
+        except ValueError as err:
+            parser.error(f"invalid WYOMING_PIPER_ARGS: {err}")
+
+    args = parser.parse_args(cli_args)
 
     if not args.download_dir:
         # Default to first data directory
@@ -429,8 +440,6 @@ def _setup_omnivoice(
     rescans ``--omnivoice-ref-dir`` on each call, so voices added while the
     server runs are advertised on the next Describe.
     """
-    import os
-
     # Point the HuggingFace cache at the download dir before any hub import.
     os.environ["HF_HOME"] = str(Path(args.download_dir).resolve())
     if args.local_files_only:

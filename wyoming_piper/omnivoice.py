@@ -284,6 +284,7 @@ class OmniVoiceModel:
         num_step: int = 32,
         default_language: str = "English",
         local_files_only: bool = False,
+        use_cuda: bool = False,
     ) -> None:
         import types
 
@@ -307,14 +308,17 @@ class OmniVoiceModel:
         )
         model.eval()
 
-        _LOGGER.debug("Loading ONNX LM graph: %s", onnx_path)
+        providers = (
+            ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            if use_cuda
+            else ["CPUExecutionProvider"]
+        )
+        _LOGGER.debug("Loading ONNX LM graph with %s: %s", providers[0], onnx_path)
         sess_options = ort.SessionOptions()
         sess_options.graph_optimization_level = (
             ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         )
-        session = ort.InferenceSession(
-            onnx_path, sess_options, providers=["CPUExecutionProvider"]
-        )
+        session = ort.InferenceSession(onnx_path, sess_options, providers=providers)
         input_names = {i.name for i in session.get_inputs()}
 
         def onnx_forward(

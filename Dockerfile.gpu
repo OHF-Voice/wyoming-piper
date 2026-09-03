@@ -1,0 +1,42 @@
+FROM pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime
+
+# Keep CUDA 12 compatible with ONNX Runtime. Starting with 1.27, PyPI's default
+# onnxruntime-gpu wheels target CUDA 13.
+ARG ONNXRUNTIME_GPU_VERSION=">=1.21,<1.27"
+ARG EXTRAS="zeroconf,zh,web,omnivoice-deps"
+
+WORKDIR /usr/src
+
+COPY ./pyproject.toml ./
+COPY ./wyoming_piper/__init__.py ./wyoming_piper/
+RUN \
+    apt-get update \
+    && apt-get install -y --no-install-recommends python3-venv \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m venv --system-site-packages .venv \
+    && .venv/bin/pip3 install --no-cache-dir -U \
+        pip \
+        setuptools \
+        wheel \
+    && .venv/bin/pip3 install --no-cache-dir \
+        -e ".[${EXTRAS}]" \
+    # The regular dependency is installed while resolving Piper/OmniVoice.
+    # Remove it before installing the GPU build because both distributions
+    # provide the same onnxruntime Python package.
+    && .venv/bin/pip3 uninstall -y onnxruntime \
+    && .venv/bin/pip3 install --no-cache-dir \
+        "onnxruntime-gpu${ONNXRUNTIME_GPU_VERSION}" \
+    # OmniVoice's demo/training dependencies are not needed by this backend.
+    && .venv/bin/pip3 install --no-cache-dir --no-deps omnivoice \
+    && .venv/bin/python3 -c \
+        "import torch, torchaudio; import onnxruntime as ort; assert 'CUDAExecutionProvider' in ort.get_available_providers(); assert torch.version.cuda" \
+    && rm -rf /root/.cache/pip
+
+COPY ./ ./
+
+EXPOSE 10200
+EXPOSE 5000
+
+# GPU acceleration is always enabled for this image. Additional options can be
+# passed normally or through WYOMING_PIPER_ARGS.
+ENTRYPOINT ["bash", "docker_run.sh", "--use-cuda"]
