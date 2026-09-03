@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.4.3
+
+- Add Docker health check (Describe/Info round trip over the Wyoming protocol)
+
 ## 2.4.2
 
 - Reduce unnecessary deps for `omnivoice`
