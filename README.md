@@ -177,4 +177,23 @@ docker run -it \
     --web-server --web-server-host 0.0.0.0
 ```
 
+The image has a health check that asks the server for its info over the Wyoming
+protocol, so `docker ps` reports `unhealthy` if the server stops answering. It
+assumes the default `tcp://0.0.0.0:10200`; if you override `--uri`, override the
+check to match:
+
+``` sh
+docker run -it \
+    -p 10300:10300 \
+    -v /path/to/local/data:/data \
+    --health-cmd '/usr/src/.venv/bin/python3 -m wyoming_piper.health_check --uri tcp://127.0.0.1:10300' \
+    rhasspy/wyoming-piper \
+    --uri tcp://0.0.0.0:10300 \
+    --voice en_US-lessac-medium
+```
+
+Loading the backend can take minutes on first run, since the model has to be
+downloaded before the server starts listening. The check's start period allows
+for that, so the container reports `starting` rather than `unhealthy` until then.
+
 [Source](https://github.com/rhasspy/wyoming-addons/tree/master/piper)
