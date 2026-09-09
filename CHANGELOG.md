@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.5.0
+
+- Bump piper floor to 1.8.0 for the Japanese and Thai phonemizers
+- Add `ja` (OpenJTalk) and `th` (TLTK) optional dependencies, with matching
+  `script/setup --ja` and `--th` flags
+- Add `ja` to the Docker images. `th` is left out: TLTK pulls in gensim,
+  scikit-learn, scipy and pandas for ~500 MB, so install the extra by hand
+- Bump wyoming floor to 1.10.2
+- Bump the `sentence-stream` floor to 1.2.1 to match `piper-tts[zh]`
+- Stop installing torch in the default Docker image. Piper has not needed it
+  since 1.6.1 trimmed the `zh` extra; it is now installed only for omnivoice
+
 ## 2.4.3
 
 - Add Docker health check (Describe/Info round trip over the Wyoming protocol)

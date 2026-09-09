@@ -5,7 +5,9 @@ ARG TARGETVARIANT
 # Optional dependencies to install. The default image is Piper-only; the
 # separate omnivoice image adds "omnivoice" here, which pulls in torch and
 # transformers (see .github/workflows/publish.yml).
-ARG EXTRAS="zeroconf,zh,web"
+# "th" is deliberately absent: TLTK drags in gensim, scikit-learn, scipy and
+# pandas for ~500 MB, so Thai is left to a manual `pip install '.[th]'`.
+ARG EXTRAS="zeroconf,zh,ja,web"
 
 # Install piper
 WORKDIR /usr/src
@@ -33,15 +35,9 @@ RUN \
         setuptools \
         wheel \
     \
-    # Install CPU-only torch up front. Both piper-tts[zh] and omnivoice require
-    # torch, and as an --extra-index-url the CPU index was merely merged with
-    # PyPI, so pip resolved the default wheels and ~2.7 GB of unused CUDA libs.
-    # --index-url is what actually pins it to the CPU builds.
-    && TORCH="torch" \
     && WANT_OMNIVOICE="" \
     && INSTALL_EXTRAS="${EXTRAS}" \
     && if echo ",${EXTRAS}," | grep -q ",omnivoice,"; then \
-        TORCH="torch torchaudio"; \
         WANT_OMNIVOICE="1"; \
         # Install the omnivoice package separately, without its dependencies:
         # it requires gradio, librosa, webdataset and tensorboardx for its demo
@@ -49,9 +45,19 @@ RUN \
         # ~600 MB). The omnivoice-deps extra pins what is actually needed.
         INSTALL_EXTRAS="$(echo "${EXTRAS}" | sed 's/\bomnivoice\b/omnivoice-deps/')"; \
     fi \
-    && .venv/bin/pip3 install --no-cache-dir \
-        --index-url https://download.pytorch.org/whl/cpu \
-        ${TORCH} \
+    \
+    # Install CPU-only torch up front, but only when omnivoice is in play: as an
+    # --extra-index-url the CPU index was merely merged with PyPI, so pip
+    # resolved the default wheels and ~2.7 GB of unused CUDA libs. --index-url
+    # is what actually pins it to the CPU builds. Piper needs no torch at all --
+    # not even for zh, since 1.6.1 trimmed that extra -- so the default image
+    # skips this. Keyed off the post-sed extras so that passing "omnivoice-deps"
+    # directly is covered too, not just "omnivoice".
+    && if echo ",${INSTALL_EXTRAS}," | grep -q ",omnivoice-deps,"; then \
+        .venv/bin/pip3 install --no-cache-dir \
+            --index-url https://download.pytorch.org/whl/cpu \
+            torch torchaudio; \
+    fi \
     \
     && .venv/bin/pip3 install --no-cache-dir \
         --extra-index-url https://www.piwheels.org/simple \
