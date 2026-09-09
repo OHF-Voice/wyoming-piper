@@ -12,6 +12,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--dev", action="store_true", help="Install dev requirements")
 parser.add_argument("--http", action="store_true", help="Install http requirements")
 parser.add_argument("--zh", action="store_true", help="Install Chinese requirements")
+parser.add_argument("--ja", action="store_true", help="Install Japanese requirements")
+parser.add_argument("--th", action="store_true", help="Install Thai requirements")
 parser.add_argument(
     "--omnivoice", action="store_true", help="Install OmniVoice requirements"
 )
@@ -39,6 +41,12 @@ if args.http:
 
 if args.zh:
     extras.append("zh")
+
+if args.ja:
+    extras.append("ja")
+
+if args.th:
+    extras.append("th")
 
 if args.omnivoice:
     # Not the "omnivoice" extra: the omnivoice package is installed below
