@@ -1,7 +1,12 @@
 # Changelog
 
-## 2.5.0
+## Unreleased
 
+- Disable ONNX Runtime telemetry (`ORT_DISABLE_TELEMETRY=1`). 1.29.0 turned it
+  on for Linux and macOS, so piper was uploading trace events to Microsoft.
+  Set `ORT_DISABLE_TELEMETRY=0` to opt back in
+
+## 2.5.0
 - Bump piper floor to 1.8.0 for the Japanese and Thai phonemizers
 - Add `ja` (OpenJTalk) and `th` (TLTK) optional dependencies, with matching
   `script/setup --ja` and `--th` flags
