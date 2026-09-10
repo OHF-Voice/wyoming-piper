@@ -21,6 +21,54 @@ from .handler import PiperEventHandler, load_omnivoice, reload_omnivoice_voices
 
 _LOGGER = logging.getLogger(__name__)
 
+# Languages whose catalog voices all use a phonemizer from an optional
+# dependency, mapped to the module that must be importable and the extra that
+# provides it. A voice advertised without its phonemizer is offered by the
+# client and then answers with silence, so these are left out of the info when
+# the dependency is missing.
+#
+# Keyed by language rather than by phoneme type because the catalog does not
+# record a phoneme type -- that lives in each voice's own config, which is only
+# on disk once the voice has been downloaded. Chinese is deliberately absent:
+# its voices are a mix of "pinyin" (needs g2pW) and "espeak" (does not), so the
+# language alone cannot say whether the extra is required. Hebrew is absent
+# because its phonemizer ships inside piper.
+_OPTIONAL_PHONEMIZER_LANGUAGES: Dict[str, "tuple[str, str]"] = {
+    "ja": ("pyopenjtalk", "ja"),
+    "th": ("tltk", "th"),
+}
+
+# The same requirement keyed by phoneme type, for voices whose config is on
+# disk. That is an exact signal where the language table above is a heuristic,
+# so it can cover Chinese too.
+_OPTIONAL_PHONEMIZER_TYPES: Dict[str, "tuple[str, str]"] = {
+    "japanese": ("pyopenjtalk", "ja"),
+    "thai": ("tltk", "th"),
+    "pinyin": ("g2pw", "zh"),
+}
+
+
+# Extras already reported as missing. The info is rebuilt on every Describe, so
+# without this the same warning is logged on each client connection.
+_WARNED_MISSING_EXTRAS: Set[str] = set()
+
+
+def _missing_phonemizer_languages() -> Dict[str, str]:
+    """Return {language: extra} for optional phonemizers that are not installed."""
+    return {
+        language: extra
+        for language, (module, extra) in _OPTIONAL_PHONEMIZER_LANGUAGES.items()
+        if importlib.util.find_spec(module) is None
+    }
+
+
+def _voice_language(voice_info: Dict[str, Any], voice_name: str) -> str:
+    """Return the language code advertised for a catalog voice."""
+    return voice_info.get("language", {}).get(
+        "code",
+        voice_info.get("espeak", {}).get("voice", voice_name.split("_")[0]),
+    )
+
 
 async def main() -> None:
     """Main entry point."""
@@ -285,40 +333,77 @@ def _setup_piper(
     voice_name = voice_info.get("key", args.voice)
     assert voice_name is not None
 
+    # A default voice that cannot be phonemized is an error now rather than
+    # silence on the first request. _piper_info() above has already dropped it
+    # from the advertised list, so it would otherwise fail invisibly.
+    if voice_info:
+        language = _voice_language(voice_info, voice_name)
+        extra = _missing_phonemizer_languages().get(language.split("_")[0])
+        if extra is not None:
+            raise ValueError(
+                f"Voice '{args.voice}' needs the '{extra}' optional dependencies: "
+                f"pip install 'wyoming-piper[{extra}]'"
+            )
+
     ensure_voice_exists(voice_name, args.data_dir, args.download_dir, voices_info)
 
     return partial(_piper_info, args, voices_info), voices_info
 
 
 def _piper_info(args: argparse.Namespace, voices_info: Dict[str, Any]) -> Info:
-    """Build Wyoming info from the catalog plus the custom voices on disk."""
-    voices = [
-        TtsVoice(
-            name=voice_name,
-            description=get_description(voice_info),
-            attribution=Attribution(
-                name="rhasspy", url="https://github.com/rhasspy/piper"
-            ),
-            installed=True,
-            version=None,
-            languages=[
-                voice_info.get("language", {}).get(
-                    "code",
-                    voice_info.get("espeak", {}).get("voice", voice_name.split("_")[0]),
-                )
-            ],
-            speakers=(
-                [
-                    TtsVoiceSpeaker(name=speaker_name)
-                    for speaker_name in voice_info["speaker_id_map"]
-                ]
-                if voice_info.get("speaker_id_map")
-                else None
-            ),
+    """Build Wyoming info from the catalog plus the custom voices on disk.
+
+    Voices whose phonemizer is an optional dependency that is not installed are
+    left out: advertising one means the client offers it and every request comes
+    back as silence.
+    """
+    missing_phonemizers = _missing_phonemizer_languages()
+    skipped: Dict[str, int] = {}
+
+    voices = []
+    for voice_name, voice_info in voices_info.items():
+        if voice_info.get("_is_alias", False):
+            continue
+
+        language = _voice_language(voice_info, voice_name)
+        extra = missing_phonemizers.get(language.split("_")[0])
+        if extra is not None:
+            skipped[extra] = skipped.get(extra, 0) + 1
+            continue
+
+        voices.append(
+            TtsVoice(
+                name=voice_name,
+                description=get_description(voice_info),
+                attribution=Attribution(
+                    name="rhasspy", url="https://github.com/rhasspy/piper"
+                ),
+                installed=True,
+                version=None,
+                languages=[language],
+                speakers=(
+                    [
+                        TtsVoiceSpeaker(name=speaker_name)
+                        for speaker_name in voice_info["speaker_id_map"]
+                    ]
+                    if voice_info.get("speaker_id_map")
+                    else None
+                ),
+            )
         )
-        for voice_name, voice_info in voices_info.items()
-        if not voice_info.get("_is_alias", False)
-    ]
+
+    for extra, num_skipped in sorted(skipped.items()):
+        if extra in _WARNED_MISSING_EXTRAS:
+            continue
+
+        _WARNED_MISSING_EXTRAS.add(extra)
+        _LOGGER.warning(
+            "Not advertising %s voice(s): install with the '%s' extra "
+            "(pip install 'wyoming-piper[%s]')",
+            num_skipped,
+            extra,
+            extra,
+        )
 
     custom_voice_names: Set[str] = set()
     for data_dir in args.data_dir:
@@ -372,6 +457,10 @@ def _add_custom_voice(
     interrupted upload, say) must not stop the server from starting. The default
     voice is still checked by ``ensure_voice_exists``, so a broken ``--voice``
     remains a hard error.
+
+    A voice whose phonemizer is an optional dependency that is not installed is
+    skipped the same way. Its config gives the phoneme type outright, so unlike
+    the catalog this does not have to guess from the language.
     """
     try:
         custom_voice_path, custom_config_path = find_voice(
@@ -390,6 +479,19 @@ def _add_custom_voice(
             "Skipping custom voice '%s': could not read config: %s",
             custom_voice_name,
             err,
+        )
+        return
+
+    phonemizer = _OPTIONAL_PHONEMIZER_TYPES.get(
+        custom_config.get("phoneme_type", "espeak")
+    )
+    if (phonemizer is not None) and (importlib.util.find_spec(phonemizer[0]) is None):
+        _LOGGER.warning(
+            "Skipping custom voice '%s': its phonemizer needs the '%s' extra "
+            "(pip install 'wyoming-piper[%s]')",
+            custom_voice_name,
+            phonemizer[1],
+            phonemizer[1],
         )
         return
 

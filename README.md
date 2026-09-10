@@ -40,6 +40,32 @@ script/run_http --uri 'tcp://localhost:10200'
 
 and visit http://localhost:5000 to test.
 
+## Optional phonemizers
+
+Most voices are phonemized with espeak-ng, which is built in. Three languages
+need an extra:
+
+| Language | Extra  | Provides                    |
+| -------- | ------ | --------------------------- |
+| Chinese  | `zh`   | g2pW (`pinyin` voices only) |
+| Japanese | `ja`   | OpenJTalk                   |
+| Thai     | `th`   | TLTK                        |
+
+``` sh
+script/setup --ja --th        # or: pip install '.[ja,th]'
+```
+
+Voices that need a missing extra are **not advertised**, since a client would
+otherwise offer them and every request would answer with silence. They reappear
+once the extra is installed — no restart is needed for the voice list itself,
+which is rebuilt on each `Describe`, but the phonemizer has to be importable by
+the running process. Passing one as `--voice` is an error at startup.
+
+Chinese is the exception: `zh_CN-huayan-medium` and `zh_CN-huayan-x_low` are
+espeak voices and work without the `zh` extra, so catalog voices for `zh` are
+always advertised. A *custom* Chinese voice is filtered correctly, because its
+config records `phoneme_type`.
+
 ## OmniVoice backend (experimental)
 
 An alternative [OmniVoice](https://github.com/k2-fsa/OmniVoice) backend is
