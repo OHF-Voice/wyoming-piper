@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.5.1
 
 - Disable ONNX Runtime telemetry (`ORT_DISABLE_TELEMETRY=1`). 1.29.0 turned it
   on for Linux and macOS, so piper was uploading trace events to Microsoft.
