@@ -9,6 +9,8 @@
   from the upstream piper-voices copy, and run it on pull requests.
   `script/check_voices --update` refreshes the bundled file
 - Update `voices.json`: 13 new voices, 11 updated
+- Remove `ja` (OpenJTalk) from the Docker images for now. The extra is still
+  available via `pip install '.[ja]'` or `script/setup --ja`
 
 ## 2.5.0
 - Bump piper floor to 1.8.0 for the Japanese and Thai phonemizers

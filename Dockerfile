@@ -7,7 +7,8 @@ ARG TARGETVARIANT
 # transformers (see .github/workflows/publish.yml).
 # "th" is deliberately absent: TLTK drags in gensim, scikit-learn, scipy and
 # pandas for ~500 MB, so Thai is left to a manual `pip install '.[th]'`.
-ARG EXTRAS="zeroconf,zh,ja,web"
+# "ja" is out for now as well; install it by hand with `pip install '.[ja]'`.
+ARG EXTRAS="zeroconf,zh,web"
 
 # Install piper
 WORKDIR /usr/src

@@ -3,7 +3,7 @@ FROM pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime
 # Keep CUDA 12 compatible with ONNX Runtime. Starting with 1.27, PyPI's default
 # onnxruntime-gpu wheels target CUDA 13.
 ARG ONNXRUNTIME_GPU_VERSION=">=1.21,<1.27"
-ARG EXTRAS="zeroconf,zh,ja,web,omnivoice-deps"
+ARG EXTRAS="zeroconf,zh,web,omnivoice-deps"
 
 WORKDIR /usr/src
 

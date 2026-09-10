@@ -106,7 +106,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           build-args: |
-            EXTRAS=zeroconf,zh,ja,web,omnivoice
+            EXTRAS=zeroconf,zh,web,omnivoice
           push: true
           tags: |
             rhasspy/wyoming-piper:omnivoice
