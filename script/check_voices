@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+"""Verify that the bundled voices.json matches the one published upstream.
+
+Run with --update to overwrite the bundled file with the upstream copy.
+"""
+import argparse
+import json
+import sys
+import time
+from pathlib import Path
+from typing import Any, Dict
+from urllib.error import URLError
+from urllib.request import urlopen
+
+_DIR = Path(__file__).parent
+_PROGRAM_DIR = _DIR.parent
+_MODULE = _PROGRAM_DIR.name.replace("-", "_")
+_VOICES_PATH = _PROGRAM_DIR / _MODULE / "voices.json"
+
+# Keep in sync with URL_FORMAT in wyoming_piper/download.py. Duplicated so this
+# script runs against a bare checkout, without installing the package.
+_VOICES_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/voices.json"
+
+_ATTEMPTS = 3
+_RETRY_SECONDS = 5
+
+
+def download_voices() -> bytes:
+    """Downloads the upstream voices.json, retrying transient failures."""
+    for attempt in range(1, _ATTEMPTS + 1):
+        try:
+            with urlopen(_VOICES_URL) as response:
+                return response.read()
+        except URLError as error:
+            if attempt == _ATTEMPTS:
+                raise
+
+            print(
+                f"Attempt {attempt}/{_ATTEMPTS} to download {_VOICES_URL} "
+                f"failed ({error}), retrying in {_RETRY_SECONDS}s",
+                file=sys.stderr,
+            )
+            time.sleep(_RETRY_SECONDS)
+
+    raise AssertionError("unreachable")
+
+
+def report_differences(bundled: Dict[str, Any], upstream: Dict[str, Any]) -> None:
+    """Prints the voices that differ between the bundled and upstream files."""
+    missing = sorted(set(upstream) - set(bundled))
+    extra = sorted(set(bundled) - set(upstream))
+    changed = sorted(
+        key for key in set(bundled) & set(upstream) if bundled[key] != upstream[key]
+    )
+
+    if missing:
+        print(f"Missing from bundled ({len(missing)}): {', '.join(missing)}")
+
+    if extra:
+        print(f"Not in upstream ({len(extra)}): {', '.join(extra)}")
+
+    if changed:
+        print(f"Changed upstream ({len(changed)}): {', '.join(changed)}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help="Overwrite the bundled voices.json with the upstream copy",
+    )
+    args = parser.parse_args()
+
+    upstream_bytes = download_voices()
+    upstream = json.loads(upstream_bytes)
+
+    with open(_VOICES_PATH, "r", encoding="utf-8") as voices_file:
+        bundled = json.load(voices_file)
+
+    if bundled == upstream:
+        print(f"{_VOICES_PATH.name} is up to date ({len(bundled)} voices)")
+        return
+
+    if args.update:
+        with open(_VOICES_PATH, "wb") as voices_file:
+            voices_file.write(upstream_bytes)
+
+        print(f"Updated {_VOICES_PATH} ({len(bundled)} -> {len(upstream)} voices)")
+        return
+
+    print(f"{_VOICES_PATH} does not match {_VOICES_URL}", file=sys.stderr)
+    report_differences(bundled, upstream)
+    print("\nRun 'script/check_voices --update' to refresh it.", file=sys.stderr)
+    sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

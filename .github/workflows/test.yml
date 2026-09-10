@@ -28,3 +28,18 @@ jobs:
 
       - name: Run tests
         run: script/test
+
+  voices:
+    name: Check bundled voices.json
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # Stdlib only, so no install step is needed
+      - name: Compare with upstream piper-voices
+        run: script/check_voices

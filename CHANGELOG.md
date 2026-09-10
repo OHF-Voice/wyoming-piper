@@ -5,6 +5,10 @@
 - Disable ONNX Runtime telemetry (`ORT_DISABLE_TELEMETRY=1`). 1.29.0 turned it
   on for Linux and macOS, so piper was uploading trace events to Microsoft.
   Set `ORT_DISABLE_TELEMETRY=0` to opt back in
+- Add `script/check_voices`, which fails if the bundled `voices.json` differs
+  from the upstream piper-voices copy, and run it on pull requests.
+  `script/check_voices --update` refreshes the bundled file
+- Update `voices.json`: 13 new voices, 11 updated
 
 ## 2.5.0
 - Bump piper floor to 1.8.0 for the Japanese and Thai phonemizers
