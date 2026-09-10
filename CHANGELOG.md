@@ -19,6 +19,16 @@
   cannot be filtered by language, since `zh_CN-huayan-*` are espeak voices that
   work without the `zh` extra. A `--voice` that cannot be phonemized is now an
   error at startup rather than silence on the first request
+- Add `requests` to the `th` extra. tltk imports it from its package
+  `__init__` without declaring it, so `pip install 'wyoming-piper[th]'`
+  produced an install where every Thai synthesis failed with
+  `ModuleNotFoundError: No module named 'requests'`
+- Download voices and `voices.json` through a `.part` file and an atomic
+  rename. An interrupted transfer used to leave a truncated file in place, and
+  since a voice is only re-downloaded when its file is missing or empty (sizes
+  and hashes are deliberately not checked), it was never retried -- the voice
+  stayed broken, or the catalog stayed unparseable, until the file was deleted
+  by hand
 - Fix a failed synthesis reporting the wrong error. Closing the wave writer
   before any audio was written raises `# channels not specified`, which
   replaced the original exception -- and since that exception is what becomes

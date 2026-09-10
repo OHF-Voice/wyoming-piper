@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import shutil
 from pathlib import Path
 from typing import Any, Dict, Iterable, Set, Tuple, Union
@@ -28,6 +29,34 @@ def _quote_url(url: str) -> str:
     return urlunsplit(parts)
 
 
+def _download_file(url: str, dest_path: Path) -> None:
+    """Download ``url`` to ``dest_path``, leaving nothing behind on failure.
+
+    Writing straight to the destination is not safe here: an interrupted
+    transfer leaves a truncated file, and nothing retries it. A voice is only
+    re-downloaded when its file is missing or empty (sizes and hashes are
+    deliberately not checked), so a half-written model stays broken until
+    someone deletes it by hand -- which on a Home Assistant add-on means
+    getting at /data from a host shell.
+    """
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    part_path = dest_path.with_name(f"{dest_path.name}.part")
+
+    try:
+        with (
+            urlopen(_quote_url(url)) as response,
+            open(part_path, "wb") as part_file,
+        ):
+            shutil.copyfileobj(response, part_file)
+
+        # Atomic within a directory, so the destination is either the old file
+        # or the complete new one, never a partial write.
+        os.replace(part_path, dest_path)
+    except BaseException:
+        part_path.unlink(missing_ok=True)
+        raise
+
+
 def get_voices(
     download_dir: Union[str, Path], update_voices: bool = False
 ) -> Dict[str, Any]:
@@ -40,9 +69,7 @@ def get_voices(
         try:
             voices_url = URL_FORMAT.format(file="voices.json")
             _LOGGER.debug("Downloading %s to %s", voices_url, voices_download)
-            with urlopen(_quote_url(voices_url)) as response:
-                with open(voices_download, "wb") as download_file:
-                    shutil.copyfileobj(response, download_file)
+            _download_file(voices_url, voices_download)
         except Exception:
             _LOGGER.exception("Failed to update voices list")
 
@@ -148,14 +175,9 @@ def ensure_voice_exists(
 
             file_url = URL_FORMAT.format(file=file_path)
             download_file_path = download_dir / file_name
-            download_file_path.parent.mkdir(parents=True, exist_ok=True)
 
             _LOGGER.debug("Downloading %s to %s", file_url, download_file_path)
-            with (
-                urlopen(_quote_url(file_url)) as response,
-                open(download_file_path, "wb") as download_file,
-            ):
-                shutil.copyfileobj(response, download_file)
+            _download_file(file_url, download_file_path)
 
             _LOGGER.info("Downloaded %s (%s)", download_file_path, file_url)
     except URLError:

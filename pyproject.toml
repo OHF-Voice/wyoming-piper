@@ -87,6 +87,10 @@ ja = [
 ]
 th = [
     "piper-tts[th]",
+    # tltk imports requests in its package __init__ but does not declare it, so
+    # "import tltk" -- and therefore every Thai synthesis -- fails with
+    # ModuleNotFoundError on a clean install without this.
+    "requests",
 ]
 # Everything the ONNX inference path actually imports, minus the omnivoice
 # package itself. Pair with a separate "pip install --no-deps omnivoice":
