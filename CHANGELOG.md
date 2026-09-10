@@ -11,6 +11,19 @@
 - Update `voices.json`: 13 new voices, 11 updated
 - Remove `ja` (OpenJTalk) from the Docker images for now. The extra is still
   available via `pip install '.[ja]'` or `script/setup --ja`
+- Stop advertising voices whose phonemizer is not installed. Japanese and Thai
+  need the `ja` and `th` extras, but the whole catalog was advertised
+  regardless, so a client offered those voices and every request came back as
+  an empty audio stream. Catalog voices are filtered by language; custom voices
+  by the `phoneme_type` in their config, which also covers `pinyin`. Chinese
+  cannot be filtered by language, since `zh_CN-huayan-*` are espeak voices that
+  work without the `zh` extra. A `--voice` that cannot be phonemized is now an
+  error at startup rather than silence on the first request
+- Fix a failed synthesis reporting the wrong error. Closing the wave writer
+  before any audio was written raises `# channels not specified`, which
+  replaced the original exception -- and since that exception is what becomes
+  the Wyoming `Error` event, clients were told the wrong thing. A missing
+  phonemizer now reports itself
 
 ## 2.5.0
 - Bump piper floor to 1.8.0 for the Japanese and Thai phonemizers

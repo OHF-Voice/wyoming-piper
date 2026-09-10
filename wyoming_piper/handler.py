@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import contextlib
 import logging
 import math
 import tempfile
@@ -271,7 +272,7 @@ class PiperEventHandler(AsyncEventHandler):
         with tempfile.NamedTemporaryFile(mode="wb+", suffix=".wav") as output_file:
             async with _VOICE_LOCK:
                 wav_writer: wave.Wave_write = wave.open(output_file, "wb")
-                with wav_writer:
+                try:
                     if self.cli_args.backend == "omnivoice":
                         req_voice = req_language = None
                         if synthesize.voice is not None:
@@ -290,6 +291,16 @@ class PiperEventHandler(AsyncEventHandler):
                         wav_writer.writeframes(
                             _silence_bytes(wav_writer, self.cli_args.sentence_silence)
                         )
+                except BaseException:
+                    # Closing a writer that never got its parameters set raises
+                    # "# channels not specified", which would replace whatever
+                    # actually went wrong -- a missing phonemizer, say -- with a
+                    # meaningless error. Let the real one through.
+                    with contextlib.suppress(Exception):
+                        wav_writer.close()
+                    raise
+
+                wav_writer.close()
 
             output_file.seek(0)
 
