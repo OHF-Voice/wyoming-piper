@@ -1,6 +1,6 @@
 [project]
 name = "wyoming-piper"
-version = "2.5.0"
+version = "2.5.1"
 description = "Wyoming Server for Piper"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -44,6 +44,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.black]
 line-length = 88
+target-version = ["py310", "py311", "py312", "py313"]
 
 [tool.isort]
 profile = "black"
