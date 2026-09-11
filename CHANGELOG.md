@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.5.2
 
 - Add `--web-server-allow`, which restricts the web UI to an IP address or CIDR
   range and rejects everything else with a 403 (repeatable, default unchanged:

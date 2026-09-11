@@ -27,10 +27,6 @@ RUN \
         python3-venv \
     \
     && python3 -m venv .venv \
-    # pip must be upgraded too: bookworm ships 23.0.1, which rejects the PyTorch
-    # index's wheels as "inconsistent Name: expected 'typing-extensions', but
-    # metadata has 'typing_extensions'" and then silently backtracks to an
-    # ancient torch instead of failing.
     && .venv/bin/pip3 install --no-cache-dir -U \
         pip \
         setuptools \
