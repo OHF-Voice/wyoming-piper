@@ -160,6 +160,16 @@ async def main() -> None:
         default=5000,
         help="Port for the web UI (default: 5000)",
     )
+    parser.add_argument(
+        "--web-server-allow",
+        action="append",
+        metavar="ADDRESS",
+        help="Only serve the web UI to this IP address or CIDR range, "
+        "rejecting everything else (repeatable). The UI has no authentication, "
+        "so restrict it whenever the bind address is reachable by anything but "
+        "the intended client -- behind Home Assistant ingress that is the "
+        "proxy, 172.30.32.2. Default: serve any address that can connect.",
+    )
     #
     # OmniVoice backend options
     parser.add_argument(
@@ -228,11 +238,19 @@ async def main() -> None:
     # wait.
     if args.web_server:
         try:
-            from .web_server import make_web_server, run_web_server
+            from .web_server import make_web_server, parse_allow_list, run_web_server
         except ImportError as err:
             parser.error(
                 f"--web-server requires the 'web' optional dependencies ({err})"
             )
+
+        if args.web_server_allow:
+            # Checked here so a typo is a startup error. Left to the middleware
+            # it would parse to nothing and silently reject every request.
+            try:
+                parse_allow_list(args.web_server_allow)
+            except ValueError as err:
+                parser.error(f"invalid --web-server-allow value ({err})")
 
         try:
             run_web_server(
