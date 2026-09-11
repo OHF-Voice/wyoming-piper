@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Add `--web-server-allow`, which restricts the web UI to an IP address or CIDR
+  range and rejects everything else with a 403 (repeatable, default unchanged:
+  serve anything that can connect). The UI has no authentication, and it cannot
+  simply bind loopback when it runs behind a proxy on another host -- Home
+  Assistant ingress connects to the container's address, so the server has to
+  accept from the network the proxy is on, which also exposes it to everything
+  else there. Add-ons should pass `--web-server-allow 172.30.32.2`. The check
+  uses the real peer address, never a forwarded header, and runs outside every
+  other layer so a rejected peer never reaches routing or an upload
+
 ## 2.5.1
 
 - Disable ONNX Runtime telemetry (`ORT_DISABLE_TELEMETRY=1`). 1.29.0 turned it

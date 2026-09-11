@@ -167,6 +167,23 @@ voice list, so **reload the Piper integration** for a new voice to appear in it.
 under `--download-dir` / `--omnivoice-ref-dir`, so only bind it to an address
 reachable from a network you trust.
 
+When the bind address has to be routable — behind a proxy on another host, as
+with Home Assistant ingress — `--web-server-allow` narrows it back down. It
+takes an IP address or CIDR range, may be repeated, and answers everything else
+with a 403:
+
+``` sh
+script/run --voice en_US-lessac-medium \
+    --uri 'tcp://0.0.0.0:10200' --data-dir /data --download-dir /data \
+    --web-server --web-server-host 0.0.0.0 \
+    --web-server-allow 172.30.32.2   # the Home Assistant ingress proxy
+```
+
+The check uses the peer address of the connection, never `X-Forwarded-For` or a
+similar header, since a client sets those itself. It runs outside every other
+layer, so a rejected peer never reaches routing or an upload. Without the
+option, any address that can connect is served, as before.
+
 ## Docker Image
 
 ``` sh
@@ -192,7 +209,8 @@ docker run -it \
 ```
 
 The voice management web UI is **off by default**. It has no authentication, so
-only enable it on a network you trust:
+only enable it on a network you trust, and add `--web-server-allow` to limit it
+to the clients that should reach it:
 
 ``` sh
 docker run -it \

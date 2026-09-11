@@ -18,6 +18,7 @@ Assistant is restarted), so every mutation returns a reminder to that effect.
 
 import argparse
 import importlib.util
+import ipaddress
 import json
 import logging
 import re
@@ -27,7 +28,7 @@ import threading
 import wave
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Union
 
 from flask import Flask, jsonify, render_template_string, request
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -200,6 +201,15 @@ def make_web_server(cli_args: argparse.Namespace) -> Flask:
     flask_app.wsgi_app = IngressPrefixMiddleware(  # type: ignore[method-assign]
         flask_app.wsgi_app
     )
+
+    # Applied last so it is the outermost layer: a rejected peer never reaches
+    # routing, header handling or the upload limit. getattr because callers
+    # predating this option pass a namespace without it.
+    allow_list = getattr(cli_args, "web_server_allow", None)
+    if allow_list:
+        flask_app.wsgi_app = AllowListMiddleware(  # type: ignore[method-assign]
+            flask_app.wsgi_app, parse_allow_list(allow_list)
+        )
 
     download_dir = Path(cli_args.download_dir)
     ref_dir = Path(cli_args.omnivoice_ref_dir) if cli_args.omnivoice_ref_dir else None
@@ -480,6 +490,69 @@ def run_web_server(flask_app: Flask, host: str, port: int) -> threading.Thread:
     thread.start()
     _LOGGER.info("Web UI available on http://%s:%s", host, port)
     return thread
+
+
+IPNetwork = Union[ipaddress.IPv4Network, ipaddress.IPv6Network]
+
+
+def parse_allow_list(values: Iterable[str]) -> List[IPNetwork]:
+    """Parse allow-list entries, each a single address or a CIDR range.
+
+    Raises ValueError on anything unparseable, so a typo is reported at startup
+    rather than silently rejecting every request.
+    """
+    return [ipaddress.ip_network(value, strict=False) for value in values]
+
+
+class AllowListMiddleware:
+    """Reject requests whose peer address is not in the allow list.
+
+    The UI has no authentication of its own. Behind Home Assistant ingress the
+    proxy is the only client that should ever reach it, but the server still has
+    to bind a routable address to receive from that proxy, which leaves it open
+    to anything else sharing the network. Restricting by peer address closes
+    that without breaking ingress.
+
+    The address comes from ``REMOTE_ADDR`` -- the real TCP peer -- and never
+    from a forwarded header, which a client sets itself and could forge.
+    """
+
+    def __init__(self, app: Any, networks: Sequence[IPNetwork]) -> None:
+        self.app = app
+        self.networks = list(networks)
+
+    def __call__(self, environ: Dict[str, Any], start_response: Any) -> Any:
+        remote_addr = environ.get("REMOTE_ADDR")
+        if not self._is_allowed(remote_addr):
+            _LOGGER.warning("Rejected web UI request from %s", remote_addr)
+            body = b"Forbidden\n"
+            start_response(
+                "403 Forbidden",
+                [
+                    ("Content-Type", "text/plain; charset=utf-8"),
+                    ("Content-Length", str(len(body))),
+                ],
+            )
+            return [body]
+
+        return self.app(environ, start_response)
+
+    def _is_allowed(self, remote_addr: Optional[str]) -> bool:
+        if not remote_addr:
+            return False
+
+        try:
+            address: Any = ipaddress.ip_address(remote_addr)
+        except ValueError:
+            return False
+
+        # A dual-stack listener reports IPv4 peers as ::ffff:a.b.c.d, which
+        # would not match an IPv4 rule on its own.
+        mapped = getattr(address, "ipv4_mapped", None)
+        if mapped is not None:
+            address = mapped
+
+        return any(address in network for network in self.networks)
 
 
 class IngressPrefixMiddleware:
