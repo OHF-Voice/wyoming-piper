@@ -101,7 +101,7 @@ th = [
 # steps stay separate (see the Dockerfile and script/setup).
 # audioop-lts is needed because pydub imports the stdlib audioop, removed in
 # Python 3.13; it otherwise arrives only as a gradio dependency.
-omnivoice-deps = [
+omnivoice-core = [
     "torch",
     "torchaudio",
     "transformers",
@@ -109,9 +109,18 @@ omnivoice-deps = [
     "pydub",
     "soundfile",
     "audioop-lts; python_version >= '3.13'",
-    "onnxruntime",
     "huggingface_hub",
     "numpy",
+]
+# Standard OmniVoice backend: the shared deps plus plain onnxruntime.
+omnivoice-deps = [
+    "wyoming-piper[omnivoice-core]",
+    "onnxruntime",
+]
+# OpenVINO OmniVoice backend: the shared deps plus onnxruntime-openvino.
+omnivoice-openvino-deps = [
+    "wyoming-piper[omnivoice-core]",
+    "onnxruntime-openvino",
 ]
 # Self-contained, and ~600 MB heavier, since resolving the omnivoice package
 # pulls its full dependency set. Prefer omnivoice-deps plus --no-deps omnivoice.

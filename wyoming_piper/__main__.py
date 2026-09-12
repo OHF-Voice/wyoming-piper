@@ -141,6 +141,15 @@ async def main() -> None:
         action="store_true",
         help="Use CUDA if available (requires onnxruntime-gpu)",
     )
+    parser.add_argument(
+        "--use-openvino",
+        nargs="?",
+        const="GPU",
+        default=None,
+        help="Run the omnivoice backend on the OpenVINO Execution Provider with "
+        "the given device (CPU, GPU, or NPU; default: GPU; "
+        "requires onnxruntime-openvino)",
+    )
     #
     # Web UI for managing custom voices (runs alongside the Wyoming server)
     parser.add_argument(
@@ -221,6 +230,18 @@ async def main() -> None:
             parser.error(f"invalid WYOMING_PIPER_ARGS: {err}")
 
     args = parser.parse_args(cli_args)
+
+    # WYOMING_PIPER_OPENVINO_DEVICE sets (and enables) the OpenVINO EP device,
+    # overriding the flag's. E.g. =CPU on a host without an iGPU, where the
+    # GPU default fails at model load.
+    if env_device := os.environ.get("WYOMING_PIPER_OPENVINO_DEVICE"):
+        args.use_openvino = env_device
+
+    if args.use_openvino:
+        if args.use_cuda:
+            parser.error("--use-openvino and --use-cuda are mutually exclusive")
+        if args.backend == "piper":
+            parser.error("--use-openvino is only supported with --backend omnivoice")
 
     if not args.download_dir:
         # Default to first data directory
