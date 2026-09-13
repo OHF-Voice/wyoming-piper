@@ -1,0 +1,49 @@
+FROM openvino/ubuntu24_runtime:latest
+
+# Switch from the base image's default user (openvino) to root
+USER root
+
+ARG ONNXRUNTIME_OPENVINO_VERSION="1.24.1"
+ARG EXTRAS="zeroconf,zh,web,omnivoice-openvino-deps"
+
+# Disable HF symlinks due to https://github.com/microsoft/onnxruntime/issues/27353
+ENV HF_HUB_DISABLE_SYMLINKS=1
+
+WORKDIR /usr/src
+
+# Link the openvino virtual environment to our working area
+RUN ln -s /opt/venv .venv
+
+COPY ./pyproject.toml ./
+COPY ./wyoming_piper/__init__.py ./wyoming_piper/
+RUN \
+    .venv/bin/pip3 install --no-cache-dir -U \
+        pip \
+        setuptools \
+        wheel \
+    # Pin CPU-only torch up front, to avoid pulling in the ~2.7 GB CUDA build. 
+    # --index-url is what actually pins it to the CPU wheels.
+    && .venv/bin/pip3 install --no-cache-dir \
+        --index-url https://download.pytorch.org/whl/cpu \
+        torch torchaudio \
+    && .venv/bin/pip3 install --no-cache-dir \
+        -e ".[${EXTRAS}]" \
+    # The regular dependency is installed while resolving Piper/OmniVoice.
+    # Reinstall the OpenVINO wheel last so its files are the final ones.
+    && .venv/bin/pip3 install --no-cache-dir --no-deps --force-reinstall \
+        "onnxruntime-openvino==${ONNXRUNTIME_OPENVINO_VERSION}" \
+    && .venv/bin/pip3 install --no-cache-dir --no-deps omnivoice \
+    && .venv/bin/python3 -c \
+        "import onnxruntime as ort; assert 'OpenVINOExecutionProvider' in ort.get_available_providers()"
+
+COPY ./ ./
+
+EXPOSE 10200
+EXPOSE 5000
+
+HEALTHCHECK --interval=30s --timeout=20s --start-period=5m --retries=3 \
+    CMD ["/usr/src/.venv/bin/python3", "-m", "wyoming_piper.health_check"]
+
+# OpenVINO acceleration is always enabled for this image
+# WYOMING_PIPER_OPENVINO_DEVICE=CPU to run the EP on the CPU device instead
+ENTRYPOINT ["bash", "docker_run.sh", "--use-openvino"]

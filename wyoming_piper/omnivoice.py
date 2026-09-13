@@ -285,6 +285,7 @@ class OmniVoiceModel:
         default_language: str = "English",
         local_files_only: bool = False,
         use_cuda: bool = False,
+        openvino_device: str | None = None
     ) -> None:
         import types
 
@@ -308,11 +309,15 @@ class OmniVoiceModel:
         )
         model.eval()
 
-        providers = (
-            ["CUDAExecutionProvider", "CPUExecutionProvider"]
-            if use_cuda
-            else ["CPUExecutionProvider"]
-        )
+        if openvino_device:
+            providers = [
+                ("OpenVINOExecutionProvider", {"device_type": openvino_device}),
+                "CPUExecutionProvider",
+            ]
+        elif use_cuda:
+            providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        else:
+            providers = ["CPUExecutionProvider"]
         _LOGGER.debug("Loading ONNX LM graph with %s: %s", providers[0], onnx_path)
         sess_options = ort.SessionOptions()
         sess_options.graph_optimization_level = (

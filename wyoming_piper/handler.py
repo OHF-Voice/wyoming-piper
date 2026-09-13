@@ -101,6 +101,7 @@ def load_omnivoice(cli_args: argparse.Namespace) -> None:
         default_language=cli_args.omnivoice_language,
         local_files_only=cli_args.local_files_only,
         use_cuda=cli_args.use_cuda,
+        openvino_device=cli_args.use_openvino
     )
 
 
