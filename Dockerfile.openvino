@@ -6,6 +6,9 @@ USER root
 ARG ONNXRUNTIME_OPENVINO_VERSION="1.24.1"
 ARG EXTRAS="zeroconf,zh,web,omnivoice-openvino-deps"
 
+# Disable HF symlinks due to https://github.com/microsoft/onnxruntime/issues/27353
+ENV HF_HUB_DISABLE_SYMLINKS=1
+
 WORKDIR /usr/src
 
 # Link the openvino virtual environment to our working area
