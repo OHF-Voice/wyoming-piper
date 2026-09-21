@@ -273,6 +273,60 @@ To run OmniVoice instead, replace the environment value with:
 The host must have an NVIDIA driver and the NVIDIA Container Toolkit. The GPU
 image is currently `linux/amd64` only because its PyTorch base image is amd64.
 
+### OpenVINO image
+
+OpenVINO enables Intel iGPU/GPU acceleration and improved CPU-only performance for OmniVoice. It does not accelerate Piper.
+
+Build the OpenVINO image with:
+
+``` sh
+docker build -f Dockerfile.openvino -t wyoming-piper:openvino .
+```
+
+The image contains the OpenVINO execution provider, the ONNX Runtime and OmniVoice and enables `--use-openvino` automatically. 
+
+#### Intel iGPU/GPU Acceleration
+
+The image defaults to the GPU device. Ensure the GPU device is passed to Docker.
+
+``` sh
+docker run --rm -it \
+    --device /dev/dri:/dev/dri \
+    -p 10200:10200 \
+    -v ./data:/data \
+    wyoming-piper:openvino \
+    --backend omnivoice  \
+    --omnivoice-steps 10
+```
+
+Set `WYOMING_PIPER_ARGS` to a shell-style argument string when Docker Compose
+environment variables are more convenient than `command`. For example:
+
+``` yaml
+services:
+  piper:
+    build:
+      context: .
+      dockerfile: Dockerfile.openvino
+    gpus: all
+    ports:
+      - "10200:10200"
+    volumes:
+      - ./data:/data
+    environment:
+      WYOMING_PIPER_ARGS: >-
+        --backend omnivoice
+        --omnivoice-ref-dir /data/cloned-voices
+        --omnivoice-steps 10
+    devices:
+      - /dev/dri:/dev/dri
+```
+
+#### CPU-only Acceleration
+
+Set `WYOMING_PIPER_OPENVINO_DEVICE` to "CPU" to use OpenVINO on CPU only.
+
+
 ### Container health check
 
 The image has a health check that asks the server for its info over the Wyoming
