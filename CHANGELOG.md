@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Update `voices.json`: 5 new voices, 33 updated. The Japanese voice is now
+  `ja_JP-hi_fi_captain-medium`; the old `ja_JA-hi_fi_captain-medium` name is
+  kept as an alias
+
 ## 2.5.2
 
 - Add `--web-server-allow`, which restricts the web UI to an IP address or CIDR

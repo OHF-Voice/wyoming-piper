@@ -14,7 +14,7 @@ import pytest
 
 from wyoming_piper.__main__ import _piper_info, _setup_piper
 
-_JAPANESE = "ja_JA-hi_fi_captain-medium"
+_JAPANESE = "ja_JP-hi_fi_captain-medium"
 _THAI = "th_TH-tsync2-medium"
 _ENGLISH = "en_US-lessac-medium"
 
@@ -30,7 +30,7 @@ def _catalog() -> Dict[str, Any]:
             "files": {},
         }
         for name, code in (
-            (_JAPANESE, "ja_JA"),
+            (_JAPANESE, "ja_JP"),
             (_THAI, "th_TH"),
             (_ENGLISH, "en_US"),
         )
