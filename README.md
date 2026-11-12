@@ -170,16 +170,19 @@ under `--upload-dir` / `--omnivoice-ref-dir` (and delete voices in any
 
 Uploaded voices exist nowhere else, while downloaded catalog voices can always
 be fetched again. To back up only the former, give uploads a directory of their
-own and list both directories with `--data-dir` — the upload directory first, so
-a custom voice that reuses a catalog name wins:
+own:
 
 ``` sh
 script/run --voice en_US-lessac-medium \
     --uri 'tcp://0.0.0.0:10200' \
-    --data-dir /data --data-dir /data/downloads \
+    --data-dir /data/downloads \
     --download-dir /data/downloads --upload-dir /data \
     --web-server
 ```
+
+An upload directory that is not already a `--data-dir` is searched before all
+of them, so a custom voice that reuses a catalog name wins over the downloaded
+copy. List it with `--data-dir` yourself to put it somewhere else in the order.
 
 `--download-dir` also holds `voices.json` and the HuggingFace cache (OmniVoice
 weights), all of which can be downloaded again, so the whole directory can be

@@ -10,8 +10,9 @@
   `--download-dir`, so a backup could not include the irreplaceable uploads
   without also carrying every re-downloadable catalog voice (20-110 MB each).
   With separate directories, the download directory can be left out of backups
-  whole. A warning is logged if the web UI is enabled and the upload directory
-  is not a `--data-dir`, since voices uploaded there would never be found
+  whole. An upload directory that is not a `--data-dir` is searched before
+  all of them, so uploads are always found and a custom voice wins over a
+  catalog voice of the same name
 
 ## 2.5.2
 

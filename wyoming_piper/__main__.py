@@ -107,8 +107,8 @@ async def main() -> None:
         "--upload-dir",
         help="Directory the web UI saves uploaded voices into (default: "
         "--download-dir). Keeping uploads apart from downloaded catalog voices "
-        "lets a backup include the irreplaceable half only. Should also be a "
-        "--data-dir, or uploaded voices will not be found",
+        "lets a backup include the irreplaceable half only. Searched before "
+        "every --data-dir unless listed as one",
     )
     #
     parser.add_argument(
@@ -239,6 +239,7 @@ async def main() -> None:
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO, format=args.log_format
     )
+    _add_upload_dir(args)
     _LOGGER.debug(args)
 
     # Optional web UI for managing custom voices, in a background thread. Started
@@ -261,14 +262,6 @@ async def main() -> None:
                 parse_allow_list(args.web_server_allow)
             except ValueError as err:
                 parser.error(f"invalid --web-server-allow value ({err})")
-
-        data_dirs = {Path(d).resolve() for d in args.data_dir}
-        if Path(args.upload_dir).resolve() not in data_dirs:
-            _LOGGER.warning(
-                "Upload directory %s is not a --data-dir, so voices uploaded "
-                "through the web UI will not be found",
-                args.upload_dir,
-            )
 
         try:
             run_web_server(
@@ -338,6 +331,22 @@ async def main() -> None:
 
 
 # -----------------------------------------------------------------------------
+
+
+def _add_upload_dir(args: argparse.Namespace) -> None:
+    """Make sure voices in --upload-dir are found, searching it first if added.
+
+    Voices are only looked up in --data-dir, so an upload dir left out of that
+    list would hold voices nothing can use. It goes first rather than last: an
+    upload is the user's own voice and should win over a downloaded catalog copy
+    of the same name. An upload dir that is already listed keeps its place.
+    """
+    upload_dir = Path(args.upload_dir).resolve()
+    if any(Path(d).resolve() == upload_dir for d in args.data_dir):
+        return
+
+    args.data_dir.insert(0, args.upload_dir)
+    _LOGGER.debug("Added upload dir %s as the first data dir", args.upload_dir)
 
 
 def _setup_piper(
