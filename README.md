@@ -151,8 +151,9 @@ script/run --voice en_US-lessac-medium \
 Then visit http://localhost:5000. The page has two sections:
 
 - **Piper** — upload and delete custom voices (a `<voice>.onnx` model plus its
-  `<voice>.onnx.json` config) stored in `--download-dir`. Some metadata (dataset,
-  language, quality, sample rate) is read from each config file.
+  `<voice>.onnx.json` config). Uploads are saved to `--upload-dir`, which
+  defaults to `--download-dir`. Some metadata (dataset, language, quality,
+  sample rate) is read from each config file.
 - **OmniVoice** — upload cloned voices (a reference WAV plus its required
   transcript) into `--omnivoice-ref-dir/<language>/<voice_name>/`, and delete a
   cloned voice's whole directory.
@@ -164,8 +165,25 @@ voice list, so **reload the Piper integration** for a new voice to appear in it.
 
 `--web-server-host` / `--web-server-port` set the bind address (default
 `127.0.0.1:5000`). The UI has no authentication and can upload and delete files
-under `--download-dir` / `--omnivoice-ref-dir`, so only bind it to an address
-reachable from a network you trust.
+under `--upload-dir` / `--omnivoice-ref-dir` (and delete voices in any
+`--data-dir`), so only bind it to an address reachable from a network you trust.
+
+Uploaded voices exist nowhere else, while downloaded catalog voices can always
+be fetched again. To back up only the former, give uploads a directory of their
+own and list both directories with `--data-dir` — the upload directory first, so
+a custom voice that reuses a catalog name wins:
+
+``` sh
+script/run --voice en_US-lessac-medium \
+    --uri 'tcp://0.0.0.0:10200' \
+    --data-dir /data --data-dir /data/downloads \
+    --download-dir /data/downloads --upload-dir /data \
+    --web-server
+```
+
+`--download-dir` also holds `voices.json` and the HuggingFace cache (OmniVoice
+weights), all of which can be downloaded again, so the whole directory can be
+left out of backups.
 
 When the bind address has to be routable — behind a proxy on another host, as
 with Home Assistant ingress — `--web-server-allow` narrows it back down. It

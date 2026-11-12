@@ -4,7 +4,7 @@ Runs in a background thread alongside the Wyoming server and exposes a small web
 UI (designed to work as a Home Assistant add-on behind ingress) for:
 
 * **Piper** — uploading and deleting custom voices (``<voice>.onnx`` +
-  ``<voice>.onnx.json``) under ``--download-dir``, with a little metadata read
+  ``<voice>.onnx.json``) under ``--upload-dir``, with a little metadata read
   from each config file.
 * **OmniVoice** — uploading reference recordings (``ref.wav`` + a required
   transcript) as cloning voices under ``--omnivoice-ref-dir/<language>/<name>/``
@@ -212,14 +212,17 @@ def make_web_server(cli_args: argparse.Namespace) -> Flask:
         )
 
     download_dir = Path(cli_args.download_dir)
+    # getattr for callers predating --upload-dir, which defaults to the
+    # download dir.
+    upload_dir = Path(getattr(cli_args, "upload_dir", None) or download_dir)
     ref_dir = Path(cli_args.omnivoice_ref_dir) if cli_args.omnivoice_ref_dir else None
     backend = cli_args.backend
 
     # The Wyoming server advertises custom voices from every --data-dir, so all
-    # of them are managed here. Uploads still go to --download-dir, which is not
+    # of them are managed here. Uploads still go to --upload-dir, which is not
     # necessarily one of them. Data dirs come first, matching find_voice() order.
     voice_dirs: List[Path] = []
-    for dir_str in list(cli_args.data_dir) + [cli_args.download_dir]:
+    for dir_str in list(cli_args.data_dir) + [upload_dir]:
         voice_dir = Path(dir_str)
         if voice_dir not in voice_dirs:
             voice_dirs.append(voice_dir)
@@ -250,6 +253,7 @@ def make_web_server(cli_args: argparse.Namespace) -> Flask:
                 "omnivoice_enabled": backend == "omnivoice",
                 "omnivoice_ref_dir": str(ref_dir) if ref_dir else None,
                 "download_dir": str(download_dir),
+                "upload_dir": str(upload_dir),
                 "voice_dirs": [str(d) for d in voice_dirs],
                 "omnivoice_languages": _omnivoice_languages(
                     cli_args.omnivoice_language
@@ -309,9 +313,9 @@ def make_web_server(cli_args: argparse.Namespace) -> Flask:
                 400,
             )
 
-        download_dir.mkdir(parents=True, exist_ok=True)
-        onnx_path = download_dir / f"{base}.onnx"
-        config_path = download_dir / f"{base}.onnx.json"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        onnx_path = upload_dir / f"{base}.onnx"
+        config_path = upload_dir / f"{base}.onnx.json"
 
         # Config first: voices are discovered by globbing *.onnx, so if this is
         # interrupted a stray config is ignored, while a stray model is not.
@@ -675,7 +679,7 @@ INDEX_HTML = r"""<!doctype html>
     <div id="piper-warn"></div>
     <p class="sub">Custom voices in this server's data directories. Each voice is a
       <code>&lt;name&gt;.onnx</code> model and its <code>&lt;name&gt;.onnx.json</code> config.
-      Uploads go to <code id="piper-upload-dir">the download directory</code>.</p>
+      Uploads go to <code id="piper-upload-dir">the upload directory</code>.</p>
     <div id="piper-list"><p class="empty">Loading…</p></div>
 
     <details>
@@ -780,7 +784,7 @@ async function loadStatus() {
   }
   if (warn) sectionMsg("omni-warn", "warn", warn);
 
-  if (STATE.download_dir) el("piper-upload-dir").textContent = STATE.download_dir;
+  if (STATE.upload_dir) el("piper-upload-dir").textContent = STATE.upload_dir;
 
   const dl = el("omni-langs");
   dl.innerHTML = (STATE.omnivoice_languages || [])

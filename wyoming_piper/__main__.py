@@ -103,6 +103,13 @@ async def main() -> None:
         "--download-dir",
         help="Directory to download voices into (default: first data dir)",
     )
+    parser.add_argument(
+        "--upload-dir",
+        help="Directory the web UI saves uploaded voices into (default: "
+        "--download-dir). Keeping uploads apart from downloaded catalog voices "
+        "lets a backup include the irreplaceable half only. Should also be a "
+        "--data-dir, or uploaded voices will not be found",
+    )
     #
     parser.add_argument(
         "--speaker", type=str, help="Name or id of speaker for default voice"
@@ -226,6 +233,9 @@ async def main() -> None:
         # Default to first data directory
         args.download_dir = args.data_dir[0]
 
+    if not args.upload_dir:
+        args.upload_dir = args.download_dir
+
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO, format=args.log_format
     )
@@ -251,6 +261,14 @@ async def main() -> None:
                 parse_allow_list(args.web_server_allow)
             except ValueError as err:
                 parser.error(f"invalid --web-server-allow value ({err})")
+
+        data_dirs = {Path(d).resolve() for d in args.data_dir}
+        if Path(args.upload_dir).resolve() not in data_dirs:
+            _LOGGER.warning(
+                "Upload directory %s is not a --data-dir, so voices uploaded "
+                "through the web UI will not be found",
+                args.upload_dir,
+            )
 
         try:
             run_web_server(
