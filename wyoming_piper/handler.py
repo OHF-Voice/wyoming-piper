@@ -204,6 +204,7 @@ class PiperEventHandler(AsyncEventHandler):
 
                 # End of audio
                 await self.write_event(SynthesizeStopped().event())
+                self.is_streaming = False
 
                 _LOGGER.debug("Text stream stopped")
                 return True
