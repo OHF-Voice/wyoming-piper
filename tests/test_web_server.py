@@ -1,6 +1,7 @@
 """Tests for the voice management web UI."""
 
 import argparse
+import io
 import json
 from pathlib import Path
 from typing import Any, Dict, List
@@ -106,3 +107,53 @@ def test_status_reports_managed_dirs(client: Any, dirs: List[Path]) -> None:
     status = client.get("/api/status").get_json()
     assert status["voice_dirs"] == [str(d) for d in dirs]
     assert status["download_dir"] == str(dirs[2])
+
+
+def _upload(client: Any, name: str) -> Any:
+    config = json.dumps({"audio": {"sample_rate": 22050}}).encode("utf-8")
+    return client.post(
+        "/api/piper/upload",
+        data={
+            "name": name,
+            "onnx": (io.BytesIO(b"x" * 1024), f"{name}.onnx"),
+            "config": (io.BytesIO(config), f"{name}.onnx.json"),
+        },
+        content_type="multipart/form-data",
+    )
+
+
+def test_upload_defaults_to_download_dir(client: Any, dirs: List[Path]) -> None:
+    """Without --upload-dir, uploads land where they always did."""
+    response = _upload(client, "uploaded")
+    assert response.status_code == 200, response.get_json()
+    assert (dirs[2] / "uploaded.onnx").is_file()
+    assert (dirs[2] / "uploaded.onnx.json").is_file()
+
+
+def test_upload_dir_separate_from_download_dir(
+    tmp_path: Path, dirs: List[Path]
+) -> None:
+    """Uploads go to --upload-dir, never --download-dir, and are listed."""
+    upload_dir = tmp_path / "uploads"
+    args = argparse.Namespace(
+        backend="piper",
+        data_dir=[str(upload_dir), str(dirs[2])],
+        download_dir=str(dirs[2]),
+        upload_dir=str(upload_dir),
+        omnivoice_ref_dir=None,
+        omnivoice_language="English",
+    )
+    client = make_web_server(args).test_client()
+
+    status = client.get("/api/status").get_json()
+    assert status["upload_dir"] == str(upload_dir)
+    assert status["download_dir"] == str(dirs[2])
+
+    response = _upload(client, "uploaded")
+    assert response.status_code == 200, response.get_json()
+    assert (upload_dir / "uploaded.onnx").is_file()
+    assert (upload_dir / "uploaded.onnx.json").is_file()
+    assert not (dirs[2] / "uploaded.onnx").exists()
+
+    voice = _voices(client)["uploaded"]
+    assert voice["dir"] == str(upload_dir)

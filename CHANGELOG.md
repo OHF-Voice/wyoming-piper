@@ -5,6 +5,14 @@
 - Update `voices.json`: 5 new voices, 33 updated. The Japanese voice is now
   `ja_JP-hi_fi_captain-medium`; the old `ja_JA-hi_fi_captain-medium` name is
   kept as an alias
+- Add `--upload-dir`, where the web UI saves uploaded Piper voices (default:
+  `--download-dir`, as before). Uploads and catalog downloads used to share
+  `--download-dir`, so a backup could not include the irreplaceable uploads
+  without also carrying every re-downloadable catalog voice (20-110 MB each).
+  With separate directories, the download directory can be left out of backups
+  whole. An upload directory that is not a `--data-dir` is searched before
+  all of them, so uploads are always found and a custom voice wins over a
+  catalog voice of the same name
 
 ## 2.5.2
 
