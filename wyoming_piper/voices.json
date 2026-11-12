@@ -276,16 +276,16 @@
         "speaker_id_map": {},
         "files": {
             "cs/cs_CZ/jirka/medium/cs_CZ-jirka-medium.onnx": {
-                "size_bytes": 63201294,
-                "md5_digest": "da2deb0a3f93226a3f9b6e40d43c46ca"
+                "size_bytes": 63221984,
+                "md5_digest": "401f2032bfcd322626560c92462a211d"
             },
             "cs/cs_CZ/jirka/medium/cs_CZ-jirka-medium.onnx.json": {
-                "size_bytes": 5025,
-                "md5_digest": "2762e45c5b084694093c683a5da7cf94"
+                "size_bytes": 5465,
+                "md5_digest": "6dab85fea79fd410b98cb75c5bc9506a"
             },
             "cs/cs_CZ/jirka/medium/MODEL_CARD": {
-                "size_bytes": 282,
-                "md5_digest": "c147108824aeb762a20cc3e69fc31664"
+                "size_bytes": 459,
+                "md5_digest": "0073c84800fd3eb1853cb0ce66f3f104"
             }
         },
         "aliases": []
@@ -1912,6 +1912,36 @@
         "aliases": [
             "en-us-kathleen-low"
         ]
+    },
+    "en_US-kathleen-medium": {
+        "key": "en_US-kathleen-medium",
+        "name": "kathleen",
+        "language": {
+            "code": "en_US",
+            "family": "en",
+            "region": "US",
+            "name_native": "English",
+            "name_english": "English",
+            "country_english": "United States"
+        },
+        "quality": "medium",
+        "num_speakers": 1,
+        "speaker_id_map": {},
+        "files": {
+            "en/en_US/kathleen/medium/en_US-kathleen-medium.onnx": {
+                "size_bytes": 63221984,
+                "md5_digest": "25e2f89714d6e90d21e1f7892a962250"
+            },
+            "en/en_US/kathleen/medium/en_US-kathleen-medium.onnx.json": {
+                "size_bytes": 5470,
+                "md5_digest": "5e69538a41dae1c79ce870796e1e13ec"
+            },
+            "en/en_US/kathleen/medium/MODEL_CARD": {
+                "size_bytes": 463,
+                "md5_digest": "4e63963b29eacc7cf433e08bf82a448a"
+            }
+        },
+        "aliases": []
     },
     "en_US-kristin-medium": {
         "key": "en_US-kristin-medium",
@@ -7002,16 +7032,16 @@
         "speaker_id_map": {},
         "files": {
             "pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx": {
-                "size_bytes": 63201294,
-                "md5_digest": "e0724a2f07965f6523d2a1e96b488a4c"
+                "size_bytes": 63221984,
+                "md5_digest": "9bf6f0670e3651512a786434bd0a6efe"
             },
             "pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx.json": {
-                "size_bytes": 4855,
-                "md5_digest": "a1258e1e113c47d9a1486a9bef1daab4"
+                "size_bytes": 5466,
+                "md5_digest": "f2d60b12ff36d58f6112be7536a9fb9f"
             },
             "pt/pt_BR/faber/medium/MODEL_CARD": {
-                "size_bytes": 279,
-                "md5_digest": "f636a9f4c8b0e5107a1255ebcd4bc6c5"
+                "size_bytes": 456,
+                "md5_digest": "2f11a9efed64d60f057228057893e649"
             }
         },
         "aliases": []
@@ -7152,16 +7182,16 @@
         "speaker_id_map": {},
         "files": {
             "ru/ru_RU/dmitri/medium/ru_RU-dmitri-medium.onnx": {
-                "size_bytes": 63201294,
-                "md5_digest": "589ccc91745a1e2353508ff62c5941b7"
+                "size_bytes": 63221984,
+                "md5_digest": "3f68914893fb107c454fd05e80196981"
             },
             "ru/ru_RU/dmitri/medium/ru_RU-dmitri-medium.onnx.json": {
-                "size_bytes": 4824,
-                "md5_digest": "4eaf0d090190ecb8d958d40c76fd85e8"
+                "size_bytes": 5465,
+                "md5_digest": "681a4966ffd3b72a252a2704f0c2149f"
             },
             "ru/ru_RU/dmitri/medium/MODEL_CARD": {
-                "size_bytes": 277,
-                "md5_digest": "203e4e94894ffb31722b456cab6a2259"
+                "size_bytes": 454,
+                "md5_digest": "970ea746486a886c50e303322cfc6b98"
             }
         },
         "aliases": []
