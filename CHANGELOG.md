@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.5.3
 
 - Update `voices.json`: 6 new voices, 36 updated. The Japanese voice is now
   `ja_JP-hi_fi_captain-medium`; the old `ja_JA-hi_fi_captain-medium` name is
@@ -13,6 +13,10 @@
   whole. An upload directory that is not a `--data-dir` is searched before
   all of them, so uploads are always found and a custom voice wins over a
   catalog voice of the same name
+- Answer a plain `synthesize` sent on the same connection after a text stream.
+  The streaming flag set by `synthesize-start` was never cleared, so every later
+  `synthesize` was skipped as a compatibility copy and the client waited for an
+  `audio-stop` that never came
 
 ## 2.5.2
 
