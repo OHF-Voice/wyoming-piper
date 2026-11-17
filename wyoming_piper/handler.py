@@ -7,7 +7,8 @@ import logging
 import math
 import tempfile
 import wave
-from typing import Any, Callable, Dict, Optional
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from piper import PiperVoice, SynthesisConfig
 from sentence_stream import SentenceBoundaryDetector
@@ -24,13 +25,14 @@ from wyoming.tts import (
     SynthesizeStopped,
 )
 
-from .download import ensure_voice_exists, find_voice
+from .download import VoiceNotFoundError, ensure_voice_exists, find_voice
 
 _LOGGER = logging.getLogger(__name__)
 
 # Keep the most recently used voice loaded
 _VOICE: Optional[PiperVoice] = None
 _VOICE_NAME: Optional[str] = None
+_VOICE_FILES: Optional[Tuple[Tuple[str, int, int], ...]] = None
 _VOICE_LOCK = asyncio.Lock()
 
 # OmniVoice backend model (loaded once, kept in memory) and its reference voices
@@ -102,6 +104,15 @@ def load_omnivoice(cli_args: argparse.Namespace) -> None:
         local_files_only=cli_args.local_files_only,
         use_cuda=cli_args.use_cuda,
     )
+
+
+def _voice_files(*paths: Path) -> Tuple[Tuple[str, int, int], ...]:
+    """Path, size and mtime of a voice's files, to notice when they change."""
+    files = []
+    for path in paths:
+        stat = path.stat()
+        files.append((str(path.resolve()), stat.st_size, stat.st_mtime_ns))
+    return tuple(files)
 
 
 def _silence_bytes(wav_writer: wave.Wave_write, seconds: float) -> bytes:
@@ -353,9 +364,20 @@ class PiperEventHandler(AsyncEventHandler):
         voice_speaker: Optional[str],
     ) -> None:
         """Synthesize with the piper backend into ``wav_writer``."""
-        global _VOICE, _VOICE_NAME
+        global _VOICE, _VOICE_NAME, _VOICE_FILES
 
-        if voice_name != _VOICE_NAME:
+        voice_changed = voice_name != _VOICE_NAME
+        if not voice_changed:
+            # The web UI can replace or delete the loaded voice's files while
+            # the server runs; reload instead of speaking with the old model.
+            try:
+                voice_changed = _VOICE_FILES != _voice_files(
+                    *find_voice(voice_name, self.cli_args.data_dir)
+                )
+            except (VoiceNotFoundError, OSError):
+                voice_changed = True
+
+        if voice_changed:
             # Load new voice
             _LOGGER.debug("Loading voice: %s", voice_name)
             if self.cli_args.use_cuda:
@@ -372,6 +394,7 @@ class PiperEventHandler(AsyncEventHandler):
                 model_path, config_path, use_cuda=self.cli_args.use_cuda
             )
             _VOICE_NAME = voice_name
+            _VOICE_FILES = _voice_files(model_path, config_path)
 
         assert _VOICE is not None
 
