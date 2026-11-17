@@ -123,15 +123,15 @@
         "files": {
             "bn/bn_BD/google/medium/bn_BD-google-medium.onnx": {
                 "size_bytes": 76782515,
-                "md5_digest": "2a365b2d91bb9cb7ed62c57d9ee0ec48"
+                "md5_digest": "796bd28ef88a2b437c215e16ef378b43"
             },
             "bn/bn_BD/google/medium/bn_BD-google-medium.onnx.json": {
-                "size_bytes": 5494,
-                "md5_digest": "2286795a555ad100657de86646a74f12"
+                "size_bytes": 5723,
+                "md5_digest": "8b182724e21daece68bf2be670144e0f"
             },
             "bn/bn_BD/google/medium/MODEL_CARD": {
-                "size_bytes": 2419,
-                "md5_digest": "1bf6e7d71fa4144b9b571aa4fde29ddc"
+                "size_bytes": 2551,
+                "md5_digest": "4c1576282849a985ecc9a2b34b57c999"
             }
         },
         "aliases": []
@@ -4505,16 +4505,16 @@
         "speaker_id_map": {},
         "files": {
             "es/es_MX/ald/medium/es_MX-ald-medium.onnx": {
-                "size_bytes": 63201294,
-                "md5_digest": "86374058e59b41ac3b7fe4181e1daad6"
+                "size_bytes": 63221984,
+                "md5_digest": "3b9af44658b3912214dd6397d5089764"
             },
             "es/es_MX/ald/medium/es_MX-ald-medium.onnx.json": {
-                "size_bytes": 4878,
-                "md5_digest": "aedc07cd37e61360144f04aebb05f7dd"
+                "size_bytes": 5460,
+                "md5_digest": "905f7a855940489ec1048200bbbfc884"
             },
             "es/es_MX/ald/medium/MODEL_CARD": {
-                "size_bytes": 320,
-                "md5_digest": "a858af3698e0c7cda6c9ad5d0d11b651"
+                "size_bytes": 467,
+                "md5_digest": "f98cbac0e874049b1d71b7703d7beffc"
             }
         },
         "aliases": []
@@ -4601,15 +4601,15 @@
         "files": {
             "et/et_EE/news/medium/et_EE-news-medium.onnx": {
                 "size_bytes": 76757937,
-                "md5_digest": "6fba6ec8d985e84435ce680ee9d3b0bc"
+                "md5_digest": "54751d83f291cdd3c33d1b2381d2c3c7"
             },
             "et/et_EE/news/medium/et_EE-news-medium.onnx.json": {
-                "size_bytes": 5320,
-                "md5_digest": "28fea16b0e4d26a445906e83d6de7ac6"
+                "size_bytes": 5522,
+                "md5_digest": "7c66a1187cd52cc042d2d54e6397174f"
             },
             "et/et_EE/news/medium/MODEL_CARD": {
-                "size_bytes": 449,
-                "md5_digest": "f6dbea05d3d896ff38202afe22339b82"
+                "size_bytes": 647,
+                "md5_digest": "28b6368d723569251a9b4b7ad00dd0b1"
             }
         },
         "aliases": []
@@ -4790,6 +4790,36 @@
             "fa/fa_IR/gyro/medium/MODEL_CARD": {
                 "size_bytes": 262,
                 "md5_digest": "b30a1713c6e67946e3f1ed33eac06039"
+            }
+        },
+        "aliases": []
+    },
+    "fa_IR-magnoliasis-medium": {
+        "key": "fa_IR-magnoliasis-medium",
+        "name": "magnoliasis",
+        "language": {
+            "code": "fa_IR",
+            "family": "fa",
+            "region": "IR",
+            "name_native": "فارسی",
+            "name_english": "Farsi",
+            "country_english": "Iran"
+        },
+        "quality": "medium",
+        "num_speakers": 1,
+        "speaker_id_map": {},
+        "files": {
+            "fa/fa_IR/magnoliasis/medium/fa_IR-magnoliasis-medium.onnx": {
+                "size_bytes": 63221984,
+                "md5_digest": "f3bd8affea021a1d6874524b1eb215b3"
+            },
+            "fa/fa_IR/magnoliasis/medium/fa_IR-magnoliasis-medium.onnx.json": {
+                "size_bytes": 5462,
+                "md5_digest": "22e5acbdb87e58ff7b14a9a28f783ad0"
+            },
+            "fa/fa_IR/magnoliasis/medium/MODEL_CARD": {
+                "size_bytes": 1013,
+                "md5_digest": "050372dbb46e0fafeb93e38e3b80e8fb"
             }
         },
         "aliases": []
@@ -5647,16 +5677,16 @@
         "speaker_id_map": {},
         "files": {
             "it/it_IT/paola/medium/it_IT-paola-medium.onnx": {
-                "size_bytes": 63511038,
-                "md5_digest": "3a44e73b12ca5d0c21a72e388b5847c8"
+                "size_bytes": 63221984,
+                "md5_digest": "a30ce2075673dad72e1b80847ba47543"
             },
             "it/it_IT/paola/medium/it_IT-paola-medium.onnx.json": {
-                "size_bytes": 7099,
-                "md5_digest": "cd471a3757c88a7a4baee6207248b5d5"
+                "size_bytes": 5457,
+                "md5_digest": "6f48c37f0e7765fa834f4193933e1120"
             },
             "it/it_IT/paola/medium/MODEL_CARD": {
-                "size_bytes": 303,
-                "md5_digest": "436971e8acb0a92dd8dbc42542e59d03"
+                "size_bytes": 452,
+                "md5_digest": "cbbb9bb1e0c8a6dc4058fb9ea5c5fadc"
             }
         },
         "aliases": []
@@ -5773,15 +5803,15 @@
         "files": {
             "ja/ja_JP/hi_fi_captain/medium/ja_JP-hi_fi_captain-medium.onnx": {
                 "size_bytes": 76753841,
-                "md5_digest": "f9daab8970d06d7e9fc895a879854542"
+                "md5_digest": "40d8742b895e8bfe685d8f343f028a35"
             },
             "ja/ja_JP/hi_fi_captain/medium/ja_JP-hi_fi_captain-medium.onnx.json": {
-                "size_bytes": 5301,
-                "md5_digest": "828a68fa5fc7677f98ea336fa1d66512"
+                "size_bytes": 5503,
+                "md5_digest": "9dda7e54dbee60817ba6d2ad951fb741"
             },
             "ja/ja_JP/hi_fi_captain/medium/MODEL_CARD": {
-                "size_bytes": 361,
-                "md5_digest": "f4c4d57dd187c3836381134026d84c45"
+                "size_bytes": 551,
+                "md5_digest": "307d79ca0eb7244d6056f64b95fec9cf"
             }
         },
         "aliases": [
@@ -6191,15 +6221,15 @@
         "files": {
             "mr/mr_IN/google/medium/mr_IN-google-medium.onnx": {
                 "size_bytes": 76768179,
-                "md5_digest": "331957abd31bff58aaa10934cd3ac58f"
+                "md5_digest": "5435235f4dc62d02dd488602ae55997a"
             },
             "mr/mr_IN/google/medium/mr_IN-google-medium.onnx.json": {
-                "size_bytes": 5467,
-                "md5_digest": "6cba88c1e90cdc81a061d9f6d6d48943"
+                "size_bytes": 5669,
+                "md5_digest": "e95cdbda6721978a396ac0262df16a8c"
             },
             "mr/mr_IN/google/medium/MODEL_CARD": {
-                "size_bytes": 272,
-                "md5_digest": "db5f8c628d672a4382e5044141c0d977"
+                "size_bytes": 470,
+                "md5_digest": "be31dfa7cc391ba66cbade3faefba887"
             }
         },
         "aliases": []
@@ -6382,16 +6412,16 @@
         "speaker_id_map": {},
         "files": {
             "nl/nl_BE/nathalie/medium/nl_BE-nathalie-medium.onnx": {
-                "size_bytes": 63201294,
-                "md5_digest": "ab0c38b5f66764b59ad9e3e98b1c2172"
+                "size_bytes": 63221984,
+                "md5_digest": "4d98134852e26058c04b7f2a57860420"
             },
             "nl/nl_BE/nathalie/medium/nl_BE-nathalie-medium.onnx.json": {
-                "size_bytes": 4879,
-                "md5_digest": "13c6e6c9511447e1906c25748a93f0bd"
+                "size_bytes": 5462,
+                "md5_digest": "95cd27b023dfc997bb7f0c6fb314ac2a"
             },
             "nl/nl_BE/nathalie/medium/MODEL_CARD": {
-                "size_bytes": 284,
-                "md5_digest": "ff335f87ca41a3f89180781498e02635"
+                "size_bytes": 455,
+                "md5_digest": "03468934e0239bb7cf574ab062c966e8"
             }
         },
         "aliases": []
@@ -6786,16 +6816,16 @@
         "speaker_id_map": {},
         "files": {
             "no/no_NO/talesyntese/medium/no_NO-talesyntese-medium.onnx": {
-                "size_bytes": 63201294,
-                "md5_digest": "9fc876e7edc6593086b4f2f34889f44b"
+                "size_bytes": 63221984,
+                "md5_digest": "b12ae76eb11287d6f8abb56b9c49adcf"
             },
             "no/no_NO/talesyntese/medium/no_NO-talesyntese-medium.onnx.json": {
-                "size_bytes": 4880,
-                "md5_digest": "94b938e1bd319e6a084dc8380fb53619"
+                "size_bytes": 5463,
+                "md5_digest": "134793a174befbc161190ffe9acd7164"
             },
             "no/no_NO/talesyntese/medium/MODEL_CARD": {
-                "size_bytes": 312,
-                "md5_digest": "5fe51d2a4a0e05e85c88a80373000ae1"
+                "size_bytes": 453,
+                "md5_digest": "b16b4e50e3da2f4fc7177fbfd7172bd5"
             }
         },
         "aliases": [
@@ -6878,16 +6908,16 @@
         "speaker_id_map": {},
         "files": {
             "pl/pl_PL/gosia/medium/pl_PL-gosia-medium.onnx": {
-                "size_bytes": 63201294,
-                "md5_digest": "ecf817530e575025166e454adde1f382"
+                "size_bytes": 63221984,
+                "md5_digest": "5c52ba9b689945eb1b4efa7531d6cb49"
             },
             "pl/pl_PL/gosia/medium/pl_PL-gosia-medium.onnx.json": {
-                "size_bytes": 4814,
-                "md5_digest": "e57055b9eec14e570617af2b716bd5c3"
+                "size_bytes": 5455,
+                "md5_digest": "6defb6165447e117a7f43b5a31000bd7"
             },
             "pl/pl_PL/gosia/medium/MODEL_CARD": {
-                "size_bytes": 275,
-                "md5_digest": "ff04633302a79cee848d97bfd4f18791"
+                "size_bytes": 452,
+                "md5_digest": "d4259561065a9f2f996e1792844e834c"
             }
         },
         "aliases": []
@@ -7092,16 +7122,16 @@
         "speaker_id_map": {},
         "files": {
             "pt/pt_PT/tugão/medium/pt_PT-tugão-medium.onnx": {
-                "size_bytes": 63201294,
-                "md5_digest": "0642048511ffe36c3b519520614b53f4"
+                "size_bytes": 63221984,
+                "md5_digest": "7d21dbef0251852d72940bd95967c76c"
             },
             "pt/pt_PT/tugão/medium/pt_PT-tugão-medium.onnx.json": {
-                "size_bytes": 5026,
-                "md5_digest": "c4113a1da477aa6db28420454c142ebd"
+                "size_bytes": 5466,
+                "md5_digest": "2df31b995e34781606a593c4cb9acd28"
             },
             "pt/pt_PT/tugão/medium/MODEL_CARD": {
-                "size_bytes": 282,
-                "md5_digest": "d894d2aedf10b01ff8ee3bd13970a79e"
+                "size_bytes": 459,
+                "md5_digest": "809429de751d5560019dc1710375eeff"
             }
         },
         "aliases": []

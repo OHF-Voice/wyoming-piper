@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.5.4
+
+- Update `voices.json`: add `fa_IR-magnoliasis-medium` and update the files of
+  10 re-released voices
+- Reload a Piper voice whose files changed on disk. The loaded voice was
+  cached by name only, so uploading a voice again under the same name in the
+  web UI kept speaking with the old model, and a deleted voice kept being
+  spoken, until another voice was used or the server restarted
+- Make web UI voice uploads atomic. Piper uploads wrote the config and then
+  streamed the model straight to their final paths, so a request during a large
+  upload could load a half-written model, and an interrupted upload left a
+  broken voice behind. Both files are now written under hidden temporary names
+  and renamed into place once complete. OmniVoice uploads are filled in a
+  hidden directory that is renamed into place, and hidden directories are
+  skipped when scanning reference voices
+
 ## 2.5.3
 
 - Update `voices.json`: 6 new voices, 36 updated. The Japanese voice is now
