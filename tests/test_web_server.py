@@ -157,3 +157,105 @@ def test_upload_dir_separate_from_download_dir(
 
     voice = _voices(client)["uploaded"]
     assert voice["dir"] == str(upload_dir)
+
+
+def _leftovers(directory: Path) -> List[str]:
+    return sorted(p.name for p in directory.iterdir() if p.name.startswith("."))
+
+
+def test_upload_replaces_existing_voice(client: Any, dirs: List[Path]) -> None:
+    """Uploading a voice again swaps in the new files and leaves no temp files."""
+    _write_voice(dirs[2], "uploaded", "old")
+
+    response = _upload(client, "uploaded")
+    assert response.get_json()["ok"]
+
+    assert (dirs[2] / "uploaded.onnx").read_bytes() == b"x" * 1024
+    config = json.loads((dirs[2] / "uploaded.onnx.json").read_text("utf-8"))
+    assert "dataset" not in config
+    assert _leftovers(dirs[2]) == []
+
+
+def test_interrupted_upload_leaves_old_voice(
+    client: Any, dirs: List[Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A model upload that fails midway never replaces the voice on disk."""
+    from werkzeug.datastructures import FileStorage
+
+    _write_voice(dirs[2], "uploaded", "old")
+    old_files = {
+        name: (dirs[2] / name).read_bytes()
+        for name in ("uploaded.onnx", "uploaded.onnx.json")
+    }
+
+    def save_partially(self: FileStorage, dst: Any, *args: Any) -> None:
+        Path(dst).write_bytes(b"partial")
+        raise ConnectionResetError("client went away")
+
+    monkeypatch.setattr(FileStorage, "save", save_partially)
+    client.application.config["PROPAGATE_EXCEPTIONS"] = False
+
+    response = _upload(client, "uploaded")
+    assert response.status_code == 500
+
+    for name, data in old_files.items():
+        assert (dirs[2] / name).read_bytes() == data
+    assert _leftovers(dirs[2]) == []
+
+
+def test_omnivoice_upload(tmp_path: Path, dirs: List[Path]) -> None:
+    """A cloning voice appears complete, with no temp directory left over."""
+    import wave
+
+    ref_dir = tmp_path / "refs"
+    args = argparse.Namespace(
+        backend="omnivoice",
+        data_dir=[str(dirs[0])],
+        download_dir=str(dirs[2]),
+        omnivoice_ref_dir=str(ref_dir),
+        omnivoice_language="English",
+    )
+    client = make_web_server(args).test_client()
+
+    wav_io = io.BytesIO()
+    with wave.open(wav_io, "wb") as wav_file:
+        wav_file.setparams((1, 2, 16000, 0, "NONE", "not compressed"))
+        wav_file.writeframes(bytes(320))
+
+    def upload() -> Any:
+        return client.post(
+            "/api/omnivoice/upload",
+            data={
+                "name": "me",
+                "language": "en",
+                "transcript": "Hello there.",
+                "wav": (io.BytesIO(wav_io.getvalue()), "me.wav"),
+            },
+            content_type="multipart/form-data",
+        )
+
+    response = upload()
+    assert response.get_json()["ok"]
+
+    voice_dir = ref_dir / "en" / "me"
+    assert (voice_dir / "ref.wav").read_bytes() == wav_io.getvalue()
+    assert (voice_dir / "ref.txt").read_text("utf-8") == "Hello there."
+    assert _leftovers(ref_dir / "en") == []
+
+    # Uploading the same name again is refused without touching the voice.
+    response = upload()
+    assert response.status_code == 409
+    assert _leftovers(ref_dir / "en") == []
+
+
+def test_scan_skips_hidden_voice_dirs(tmp_path: Path) -> None:
+    """An upload still being written is not picked up as a voice."""
+    from wyoming_piper.omnivoice import scan_ref_dir
+
+    for name in ("visible", ".hidden.abc.part"):
+        voice_dir = tmp_path / "en" / name
+        voice_dir.mkdir(parents=True)
+        (voice_dir / "ref.wav").write_bytes(b"RIFF")
+        (voice_dir / "ref.txt").write_text("Hi.", encoding="utf-8")
+
+    assert [ref.name for ref in scan_ref_dir(tmp_path)] == ["visible"]

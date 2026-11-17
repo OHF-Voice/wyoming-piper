@@ -154,6 +154,10 @@ def scan_ref_dir(ref_dir: Union[str, Path]) -> List[OmniVoiceRef]:
     seen: dict = {}
     for lang_dir in sorted(p for p in base.iterdir() if p.is_dir()):
         for voice_dir in sorted(p for p in lang_dir.iterdir() if p.is_dir()):
+            if voice_dir.name.startswith("."):
+                # Hidden, e.g. a web UI upload still being written.
+                continue
+
             wav = voice_dir / "ref.wav"
             txt = voice_dir / "ref.txt"
             instruct_txt = voice_dir / "instruct.txt"

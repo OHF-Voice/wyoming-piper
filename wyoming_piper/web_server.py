@@ -21,10 +21,13 @@ import importlib.util
 import ipaddress
 import json
 import logging
+import os
 import re
 import shutil
 import socket
+import tempfile
 import threading
+import uuid
 import wave
 from functools import lru_cache
 from pathlib import Path
@@ -55,6 +58,15 @@ def _valid_name(name: Optional[str]) -> bool:
     if not name or name in (".", ".."):
         return False
     return _SAFE_NAME.match(name) is not None
+
+
+def _part_path(dest_path: Path) -> Path:
+    """Hidden, unique sibling of ``dest_path`` to write before renaming.
+
+    Hidden (and never ending in ``.onnx``) so voice listings skip it; unique so
+    two uploads of the same voice don't write into each other's file.
+    """
+    return dest_path.with_name(f".{dest_path.name}.{uuid.uuid4().hex}.part")
 
 
 # -----------------------------------------------------------------------------
@@ -317,10 +329,26 @@ def make_web_server(cli_args: argparse.Namespace) -> Flask:
         onnx_path = upload_dir / f"{base}.onnx"
         config_path = upload_dir / f"{base}.onnx.json"
 
-        # Config first: voices are discovered by globbing *.onnx, so if this is
-        # interrupted a stray config is ignored, while a stray model is not.
-        config_path.write_bytes(config_bytes)
-        onnx_file.save(onnx_path)
+        # Write both files under temporary names, then rename them into place.
+        # The Wyoming server reloads a voice whose files change, so writing in
+        # place would let a request load a half-written model (or a new config
+        # with the old model) while a large upload is still streaming in. An
+        # interrupted upload leaves nothing behind.
+        config_part = _part_path(config_path)
+        onnx_part = _part_path(onnx_path)
+        try:
+            config_part.write_bytes(config_bytes)
+            onnx_file.save(onnx_part)
+
+            # Config first: voices are discovered by globbing *.onnx, so a new
+            # voice only appears once both of its files are in place.
+            os.replace(config_part, config_path)
+            os.replace(onnx_part, onnx_path)
+        except BaseException:
+            config_part.unlink(missing_ok=True)
+            onnx_part.unlink(missing_ok=True)
+            raise
+
         _LOGGER.info("Uploaded custom Piper voice: %s", base)
 
         return jsonify({"ok": True, "name": base, "message": RELOAD_MESSAGE})
@@ -432,9 +460,37 @@ def make_web_server(cli_args: argparse.Namespace) -> Flask:
                 400,
             )
 
-        voice_dir.mkdir(parents=True, exist_ok=False)
-        (voice_dir / "ref.wav").write_bytes(wav_bytes)
-        (voice_dir / "ref.txt").write_text(transcript, encoding="utf-8")
+        # Fill a hidden directory, then rename it into place, so the voice is
+        # never seen with ref.wav but no ref.txt (or a partial ref.wav).
+        voice_dir.parent.mkdir(parents=True, exist_ok=True)
+        part_dir = Path(
+            tempfile.mkdtemp(dir=voice_dir.parent, prefix=f".{name}.", suffix=".part")
+        )
+        try:
+            (part_dir / "ref.wav").write_bytes(wav_bytes)
+            (part_dir / "ref.txt").write_text(transcript, encoding="utf-8")
+            # Fails rather than merging if the voice appeared in the meantime.
+            part_dir.rename(voice_dir)
+        except OSError:
+            shutil.rmtree(part_dir, ignore_errors=True)
+            if voice_dir.exists():
+                return (
+                    jsonify(
+                        {
+                            "ok": False,
+                            "error": (
+                                f"Voice '{name}' already exists under {language}; "
+                                "delete it first"
+                            ),
+                        }
+                    ),
+                    409,
+                )
+            raise
+        except BaseException:
+            shutil.rmtree(part_dir, ignore_errors=True)
+            raise
+
         _LOGGER.info("Created OmniVoice cloning voice: %s/%s", language, name)
 
         return jsonify({"ok": True, "name": name, "message": RELOAD_MESSAGE})
