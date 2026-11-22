@@ -563,6 +563,14 @@ def _add_custom_voice(
             attribution=Attribution(name="", url=""),
             installed=True,
             languages=[lang_code],
+            speakers=(
+                [
+                    TtsVoiceSpeaker(name=speaker_name)
+                    for speaker_name in custom_config["speaker_id_map"]
+                ]
+                if custom_config.get("speaker_id_map")
+                else None
+            ),
         )
     )
 
