@@ -165,6 +165,38 @@ def test_voice_added_while_running_is_advertised(data_dir: Path) -> None:
     assert "added-later" in {v.name for v in info_factory().tts[0].voices}
 
 
+def test_custom_voice_speakers_advertised(data_dir: Path) -> None:
+    """A multi-speaker custom voice lists its speakers, like catalog voices."""
+    (data_dir / "en_US-multi-medium.onnx").touch()
+    (data_dir / "en_US-multi-medium.onnx.json").write_text(
+        json.dumps(
+            {
+                "audio": {"quality": "medium"},
+                "language": {"code": "en_US"},
+                "speaker_id_map": {"alice": 0, "bob": 1},
+            }
+        ),
+        encoding="utf-8",
+    )
+    args = argparse.Namespace(
+        backend="piper",
+        voice=_MATCHED,
+        data_dir=[str(data_dir)],
+        download_dir=str(data_dir),
+        update_voices=False,
+        no_streaming=False,
+    )
+    info_factory, _voices_info = _setup_piper(args)
+    voices = {v.name: v for v in info_factory().tts[0].voices}
+
+    speakers = voices["en_US-multi-medium"].speakers
+    assert speakers is not None
+    assert [s.name for s in speakers] == ["alice", "bob"]
+
+    # Single-speaker custom voices still advertise no speakers
+    assert voices[_MATCHED].speakers is None
+
+
 def test_catalog_voice_not_shadowed_by_dataset_alias(data_dir: Path) -> None:
     """A "dataset" alias never overrides a real catalog voice."""
     _write_voice(data_dir, "my-copy-of-lessac", dataset="en_US-lessac-medium")
